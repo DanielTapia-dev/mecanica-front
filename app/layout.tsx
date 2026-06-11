@@ -21,7 +21,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`${geistSans.variable} ${geistMono.variable} bg-background`}>
+    <html
+      lang="es"
+      data-theme="dark"
+      className={`${geistSans.variable} ${geistMono.variable} dark bg-background`}
+      suppressHydrationWarning
+    >
       <body className="font-sans antialiased">
         <AppShell>{children}</AppShell>
         {process.env.NODE_ENV === 'production' && <Analytics />}

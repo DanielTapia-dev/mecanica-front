@@ -236,7 +236,14 @@ export function DepartmentView({ department }: DepartmentViewProps) {
                 className="pl-9 w-64 bg-input border-border"
               />
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                if (value) {
+                  setStatusFilter(value)
+                }
+              }}
+            >
               <SelectTrigger className="w-40 bg-input border-border">
                 <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Estado" />
