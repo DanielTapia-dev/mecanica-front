@@ -1,0 +1,5 @@
+import { RoleBasedDashboard } from "@/features/dashboard/components/role-dashboard"
+
+export default function DashboardPage() {
+  return <RoleBasedDashboard />
+}
