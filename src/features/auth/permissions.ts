@@ -134,6 +134,10 @@ export function canAccessUsers(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessEmpresas(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canAccessPath(user: AuthUser | null | undefined, path: string) {
   if (path === "/") {
     return Boolean(user)
@@ -141,6 +145,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/usuarios") {
     return canAccessUsers(user)
+  }
+
+  if (path === "/empresas") {
+    return canAccessEmpresas(user)
   }
 
   const departmentPath = path.match(/^\/departamentos\/([^/]+)/)

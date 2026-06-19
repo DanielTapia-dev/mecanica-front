@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Users,
+  Building2,
   Wrench,
   Paintbrush,
   Droplets,
@@ -36,6 +37,7 @@ import { useTheme } from "@/lib/theme/theme-context"
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/usuarios", label: "Usuarios", icon: Users },
+  { href: "/empresas", label: "Empresas", icon: Building2 },
   { href: "/departamentos/enderezado", label: "Enderezado", icon: Hammer },
   { href: "/departamentos/pintura", label: "Pintura", icon: Paintbrush },
   { href: "/departamentos/mecanica", label: "Mecánica", icon: Wrench },
