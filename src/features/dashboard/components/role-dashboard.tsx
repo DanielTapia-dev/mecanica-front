@@ -1,77 +1,90 @@
 "use client"
 
+import Link from "next/link"
+import type { ReactNode } from "react"
+import { ArrowRight, CarFront, ClipboardList, Headset } from "lucide-react"
+import { ModuleHeader } from "@/components/layout/module-header"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAuth } from "@/features/auth/auth-context"
-import {
-  canAccessUsers,
-  getAuthorizedDepartments,
-  getDashboardCopy,
-  getRoleAccessSummaries,
-} from "@/features/auth/permissions"
-import { DepartmentCards, DashboardStats, RecentJobs } from "./stats"
+import { buttonVariants } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 
-export function RoleBasedDashboard() {
-  const { user } = useAuth()
-  const departments = getAuthorizedDepartments(user)
-  const canManageUsers = canAccessUsers(user)
-  const dashboardCopy = getDashboardCopy(user)
-  const roleAccess = getRoleAccessSummaries(user)
-  const showOperationalData = canManageUsers || departments.length > 0
+interface ReceptionActionCardProps {
+  badge: string
+  description: string
+  href: string
+  icon: ReactNode
+  label: string
+  title: string
+}
 
+function ReceptionActionCard({
+  badge,
+  description,
+  href,
+  icon,
+  label,
+  title,
+}: ReceptionActionCardProps) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{dashboardCopy.title}</h1>
-        <p className="text-muted-foreground">{dashboardCopy.description}</p>
-      </div>
-
-      {roleAccess.length > 0 && (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-foreground">Accesos habilitados</h2>
-            <Badge variant="secondary">{roleAccess.length}</Badge>
+    <Card className="group border-border bg-card transition-colors hover:border-primary/50">
+      <CardContent className="flex min-h-52 flex-col justify-between gap-5 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex size-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            {icon}
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {roleAccess.map((access) => (
-              <Card key={access.code} className="bg-card border-border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-foreground">
-                    {access.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{access.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+          <Badge variant="outline">{badge}</Badge>
+        </div>
 
-      {showOperationalData ? (
-        <>
-          <DashboardStats
-            departments={canManageUsers ? undefined : departments}
-            showUsersMetric={canManageUsers}
-          />
+        <div className="space-y-1">
+          <p className="text-lg font-semibold text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
 
-          <section>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Departamentos</h2>
-            <DepartmentCards departments={canManageUsers ? undefined : departments} />
-          </section>
+        <Link
+          href={href}
+          className={buttonVariants({ className: "w-full justify-between" })}
+        >
+          {label}
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </CardContent>
+    </Card>
+  )
+}
 
-          <RecentJobs departments={canManageUsers ? undefined : departments} />
-        </>
-      ) : (
-        <Card className="bg-card border-border">
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">
-              No hay trabajos de departamento visibles para los roles actuales.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+function ReceptionActionsGrid() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <ReceptionActionCard
+        badge="Orden"
+        description="Crear orden desde placa, cliente y motivo."
+        href="/ordenes/nueva"
+        icon={<CarFront className="size-5" />}
+        label="Iniciar ingreso"
+        title="Ingresar vehiculo"
+      />
+      <ReceptionActionCard
+        badge="Ordenes"
+        description="Revisar ordenes existentes por fecha reciente."
+        href="/ordenes"
+        icon={<ClipboardList className="size-5" />}
+        label="Ver lista"
+        title="Lista de Ordenes"
+      />
     </div>
+  )
+}
+
+export function ReceptionDashboard() {
+  return (
+    <section className="space-y-6">
+      <ModuleHeader
+        title="Recepcion"
+        description="Gestiona el ingreso de vehiculos y la consulta de ordenes."
+        icon={<Headset className="size-6" />}
+        iconClassName="bg-primary text-primary-foreground"
+      />
+      <ReceptionActionsGrid />
+    </section>
   )
 }

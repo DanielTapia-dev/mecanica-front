@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/features/auth/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Wrench, AlertCircle } from "lucide-react"
 
 export function LoginForm() {
+  const router = useRouter()
   const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -23,8 +25,11 @@ export function LoginForm() {
     const result = await login(email, password)
     if (!result.success) {
       setError(result.message ?? "Correo o contrasena incorrectos")
+      setIsLoading(false)
+      return
     }
-    setIsLoading(false)
+
+    router.replace(result.redirectTo ?? "/")
   }
 
   return (

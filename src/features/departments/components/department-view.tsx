@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { ModuleHeader } from "@/components/layout/module-header"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -157,17 +158,12 @@ export function DepartmentView({ department }: DepartmentViewProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className={`h-12 w-12 rounded-xl ${config.color} flex items-center justify-center text-2xl`}>
-          {config.icon}
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{config.label}</h1>
-          <p className="text-muted-foreground">
-            Gestiona los trabajos del departamento de {config.label.toLowerCase()}
-          </p>
-        </div>
-      </div>
+      <ModuleHeader
+        title={config.label}
+        description={`Gestiona los trabajos del departamento de ${config.label.toLowerCase()}`}
+        icon={config.icon}
+        iconClassName={config.color}
+      />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">

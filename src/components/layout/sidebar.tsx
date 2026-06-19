@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
+  ClipboardList,
   Users,
   Wrench,
   Paintbrush,
@@ -30,11 +31,16 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/features/auth/auth-context"
-import { canAccessPath, getUserRoleLabel } from "@/features/auth/permissions"
+import {
+  canAccessPath,
+  getDefaultPathForUser,
+  getUserRoleLabel,
+} from "@/features/auth/permissions"
 import { useTheme } from "@/lib/theme/theme-context"
 
 const navItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/recepcion", label: "Recepcion", icon: LayoutDashboard },
+  { href: "/ordenes", label: "Ordenes", icon: ClipboardList },
   { href: "/usuarios", label: "Usuarios", icon: Users },
   { href: "/departamentos/enderezado", label: "Enderezado", icon: Hammer },
   { href: "/departamentos/pintura", label: "Pintura", icon: Paintbrush },
@@ -46,7 +52,20 @@ export function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
-  const visibleNavItems = navItems.filter((item) => canAccessPath(user, item.href))
+  const defaultPath = getDefaultPathForUser(user)
+  const visibleNavItems = navItems
+    .filter((item) => canAccessPath(user, item.href))
+    .sort((left, right) => {
+      if (left.href === defaultPath) {
+        return -1
+      }
+
+      if (right.href === defaultPath) {
+        return 1
+      }
+
+      return 0
+    })
   const userInitials = user?.name
     .split(" ")
     .map((part) => part[0])

@@ -1,5 +1,5 @@
-import { RoleBasedDashboard } from "@/features/dashboard/components/role-dashboard"
+import { RoleRedirect } from "@/features/auth/components/role-redirect"
 
 export default function DashboardPage() {
-  return <RoleBasedDashboard />
+  return <RoleRedirect />
 }
