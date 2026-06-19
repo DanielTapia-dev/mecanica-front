@@ -99,6 +99,11 @@ fecha_finalizacion = fecha actual
 - `REPUESTOS` gestiona solicitudes de repuestos.
 - Los roles `DEP_*` gestionan ordenes del departamento correspondiente.
 - `CLIENTE` solo consulta informacion publica.
+- Cada rol operativo de departamento debe entrar a su dashboard propio.
+- El dashboard de un rol `DEP_*` solo muestra vehiculos/ordenes asignados al departamento de ese rol.
+- Si una orden no tiene `departamento_actual_id` igual al departamento del rol, no debe mostrarse en ese dashboard.
+- Las ordenes con `estado_general = Completado` no deben aparecer en la tabla activa del departamento.
+- Si el departamento no tiene vehiculos asignados activos, mostrar el estado vacio: `No hay vehiculos asignados al departamento`.
 
 ## Rutas frontend objetivo para Daniel
 
@@ -645,7 +650,135 @@ Debe devolver al menos:
 - La orden guarda si requiere repuestos.
 - La pantalla no implementa CRUD administrativo completo de cliente ni vehiculo.
 
-## 2. Decision automatica de repuestos
+## 2. Dashboard operativo por departamento
+
+Objetivo:
+
+Cada rol operativo de departamento debe entrar a su propio dashboard y ver solo los vehiculos/ordenes asignados a su departamento. Esta tarea se implementa inmediatamente despues del ingreso inicial, porque los departamentos necesitan una vista clara para saber que vehiculos tienen en trabajo.
+
+Aplica a:
+
+```text
+/departamentos/enderezado
+/departamentos/pintura
+/departamentos/ensamblaje
+/departamentos/mecanica
+/departamentos/lavado
+```
+
+### Reglas de visibilidad por rol
+
+- `DEP_ENDEREZADA` solo ve ordenes asignadas a `ENDEREZADA`.
+- `DEP_REPARACION_PINTURA` solo ve ordenes asignadas a `REPARACION_PINTURA`.
+- `DEP_ENSAMBLAJE` solo ve ordenes asignadas a `ENSAMBLAJE`.
+- `DEP_MECANICA` solo ve ordenes asignadas a `MECANICA`.
+- `DEP_LAVADO_CALIDAD` solo ve ordenes asignadas a `LAVADO_CALIDAD`.
+- El filtro principal es `departamento_actual_id`.
+- Si backend entrega `departamento_actual.codigo`, se puede usar como apoyo visual o fallback.
+- Si una orden no tiene departamento asignado, no se muestra en ningun dashboard `DEP_*`.
+- Si una orden esta asignada a otro departamento, no se muestra.
+- La tabla activa no muestra ordenes con `estado_general = Completado`.
+
+### UX esperada
+
+El dashboard debe mantener la experiencia visual actual:
+
+```text
+Header del departamento
+-> Tarjetas de resumen por estado
+-> Tabla de vehiculos/ordenes del departamento
+```
+
+La tabla debe quedar debajo de las tarjetas y debe mostrar los vehiculos/ordenes activas del departamento, ordenados por fecha de ingreso desde el mas nuevo hasta el mas antiguo.
+
+Si el departamento no tiene vehiculos asignados activos, mostrar:
+
+```text
+No hay vehiculos asignados al departamento
+```
+
+### Tareas Daniel
+
+- Conectar el dashboard de cada departamento a datos reales del backend.
+- Crear la ruta faltante `/departamentos/ensamblaje`.
+- Resolver el departamento operativo segun el rol autenticado.
+- Filtrar por `departamento_actual_id`.
+- Excluir de la tabla las ordenes con `estado_general = Completado`.
+- Ordenar la tabla por ingreso descendente:
+  - Primero usar `fecha_creacion`.
+  - Si no existe, usar `creado_en`.
+  - Si no existe, usar `actualizado_en` como ultimo fallback.
+- Mostrar tarjetas de resumen por estado del departamento.
+- Mostrar tabla con columnas minimas:
+  - Vehiculo.
+  - Placa.
+  - Cliente.
+  - Estado.
+  - Actividad actual.
+  - Fecha de ingreso.
+  - Accion para abrir detalle.
+- Mostrar estado vacio cuando el resultado filtrado queda vacio.
+- Mantener el guard por rol: si un usuario entra a una ruta no permitida, redirigirlo a su dashboard/ruta inicial.
+
+### Servicios backend
+
+Listar ordenes:
+
+```text
+GET /api/mecanica/ordenes-trabajo
+```
+
+Campos minimos requeridos para alimentar el dashboard:
+
+```json
+{
+  "id": "string",
+  "codigo": "string",
+  "cliente_id": "string",
+  "vehiculo_id": "string",
+  "vehiculo": {
+    "placa": "string",
+    "marca": "string",
+    "modelo": "string"
+  },
+  "cliente": {
+    "nombre": "string",
+    "apellido": "string|null"
+  },
+  "estado_general": "Pendiente | En proceso | Completado",
+  "etapa_actual": "Ingreso | Repuestos | Seleccion de departamento | En departamento | Finalizado",
+  "departamento_actual_id": "string|null",
+  "departamento_actual": {
+    "id": "string",
+    "codigo": "ENDEREZADA | REPARACION_PINTURA | ENSAMBLAJE | MECANICA | LAVADO_CALIDAD",
+    "nombre": "string"
+  },
+  "actividad_actual": "string|null",
+  "fecha_creacion": "ISO string",
+  "creado_en": "ISO string|null",
+  "actualizado_en": "ISO string|null"
+}
+```
+
+Si el backend no devuelve `vehiculo`, `cliente` o `departamento_actual` embebidos, el frontend debe componer los datos con:
+
+```text
+GET /api/mecanica/vehiculo/{id}
+GET /api/mecanica/cliente/{id}
+GET /api/mecanica/departamento/{id}
+```
+
+### Criterios de terminado
+
+- Cada dashboard `DEP_*` muestra header, tarjetas y tabla.
+- Cada dashboard `DEP_*` muestra solo vehiculos/ordenes asignadas al departamento del rol.
+- La tabla no muestra ordenes sin departamento asignado.
+- La tabla no muestra ordenes de otros departamentos.
+- La tabla no muestra ordenes con `estado_general = Completado`.
+- La tabla se ordena desde el vehiculo ingresado mas recientemente.
+- Si no existen vehiculos asignados activos, se muestra `No hay vehiculos asignados al departamento`.
+
+## 3. Decision automatica de repuestos
 
 Objetivo:
 
@@ -729,7 +862,7 @@ Enviar:
 - Una orden sin repuestos queda lista para seleccion de departamento.
 - La UI muestra una sola accion principal segun la etapa.
 
-## 3. Listado y detalle de ordenes
+## 4. Listado y detalle de ordenes
 
 Objetivo:
 
@@ -818,7 +951,7 @@ El frontend puede componer el detalle con esas respuestas si `GET /orden-trabajo
 - El detalle refleja el estado real de la orden.
 - No se muestra informacion interna al rol `CLIENTE`.
 
-## 4. Repuestos
+## 5. Repuestos
 
 Objetivo:
 
@@ -881,7 +1014,7 @@ El Swagger no publica endpoints para `solicitud_repuesto_items`. Si el negocio r
 - Una orden con repuestos incompletos no puede asignarse a departamento.
 - Al completar repuestos, la orden queda lista para seleccion de departamento.
 
-## 5. Seleccion de departamento
+## 6. Seleccion de departamento
 
 Objetivo:
 
@@ -985,18 +1118,19 @@ Enviar:
 - La orden aparece en la pantalla del departamento seleccionado.
 - No quedan dos historiales abiertos para la misma orden.
 
-## 6. Trabajo dentro del departamento
+## 7. Trabajo dentro del departamento
 
 Objetivo:
 
 Cada departamento ve sus ordenes actuales y registra avances sin perder trazabilidad.
 
+La vista base del departamento y sus reglas de visibilidad se implementan en la Tarea 2. Esta tarea se enfoca en lo que el usuario puede hacer cuando abre una orden asignada a su departamento.
+
 ### Tareas Daniel
 
-- Conectar pantallas existentes de departamentos al backend real.
-- Crear la pantalla faltante de ensamblaje.
-- Filtrar ordenes por `departamento_actual_id`.
-- Mostrar por orden:
+- Reutilizar el listado filtrado definido en la Tarea 2.
+- Permitir abrir el detalle de una orden asignada al departamento.
+- Mostrar en el detalle:
   - Codigo.
   - Cliente.
   - Vehiculo.
@@ -1005,6 +1139,7 @@ Cada departamento ve sus ordenes actuales y registra avances sin perder trazabil
   - Etapa actual.
   - Actividad actual.
   - Observacion visible para cliente.
+  - Fecha de ingreso.
   - Ultima actualizacion.
 - Registrar actividad actual.
 - Registrar observacion interna.
@@ -1057,12 +1192,12 @@ Enviar:
 
 ### Criterios de terminado
 
-- Cada rol `DEP_*` ve solo las ordenes de su departamento.
+- Cada rol `DEP_*` puede abrir y operar solo ordenes de su departamento.
 - `ADMIN` puede ver y operar todas las ordenes.
 - La actualizacion queda guardada en la orden.
 - El cliente no ve observaciones internas.
 
-## 7. Movimiento entre departamentos
+## 8. Movimiento entre departamentos
 
 Objetivo:
 
@@ -1165,7 +1300,7 @@ Enviar:
 - La orden desaparece del departamento origen y aparece en el destino.
 - No quedan dos historiales abiertos.
 
-## 8. Finalizacion y despacho del vehiculo
+## 9. Finalizacion y despacho del vehiculo
 
 Objetivo:
 
@@ -1248,7 +1383,7 @@ Enviar:
 - La orden deja de aparecer como pendiente en departamentos.
 - El cliente ve el estado final publico.
 
-## 9. Seguimiento visible para cliente
+## 10. Seguimiento visible para cliente
 
 Objetivo:
 
@@ -1304,11 +1439,13 @@ La vista debe usar solo estos campos:
 - `CLIENTE` solo ve informacion publica.
 - La vista refleja el estado actual de la orden.
 
-## 10. Dashboard por rol
+## 11. Dashboard por rol
 
 Objetivo:
 
 Reemplazar los mocks y mostrar resumen del flujo segun el rol.
+
+El dashboard debe actuar como pagina inicial del rol autenticado. Si el usuario intenta entrar a una ruta que no corresponde a su rol, el guard debe redirigirlo a su dashboard/ruta inicial permitida.
 
 ### Tareas Daniel
 
@@ -1327,9 +1464,7 @@ Reemplazar los mocks y mostrar resumen del flujo segun el rol.
   - Solicitudes pendientes.
   - Ordenes desbloqueadas por repuestos completos.
 - Para roles `DEP_*`, mostrar:
-  - Ordenes del departamento.
-  - Ordenes en proceso.
-  - Ordenes pendientes de decision.
+  - Mantener las reglas ya definidas en la Tarea 2.
 - Para `CLIENTE`, mostrar:
   - Ordenes visibles.
   - Estado actual.
@@ -1347,24 +1482,26 @@ GET /api/mecanica/cliente/{cliente_id}/ordenes-trabajo
 
 - Dashboard muestra datos reales.
 - Dashboard respeta rol.
+- Dashboard de departamento respeta las reglas de la Tarea 2.
 - Dashboard no expone datos internos al cliente.
 
 ## Orden recomendado de implementacion para Daniel
 
 1. Ajustar servicios frontend a rutas reales del Swagger.
-2. Crear tipos y utilidades de `work-orders` basados en los contratos de este documento.
-3. Crear `/ordenes/nueva` con flujo vehiculo primero y cliente al final.
-4. Crear `/ordenes` y `/ordenes/[ordenId]` como centro del flujo.
-5. Implementar decision automatica de repuestos.
-6. Crear `/repuestos` con solicitud general de repuestos.
-7. Implementar seleccion de departamento.
-8. Conectar pantallas de departamentos y crear ensamblaje.
-9. Implementar movimiento entre departamentos.
-10. Implementar finalizacion/despacho.
-11. Crear `/cliente/ordenes`.
-12. Conectar dashboard por rol.
-13. Hacer QA con usuario `ADMIN` y luego por cada rol especifico.
-14. Limpiar mocks del flujo final.
+2. Implementar dashboard operativo por departamento segun la Tarea 2.
+3. Crear tipos y utilidades de `work-orders` basados en los contratos de este documento.
+4. Crear `/ordenes/nueva` con flujo vehiculo primero y cliente al final.
+5. Crear `/ordenes` y `/ordenes/[ordenId]` como centro del flujo.
+6. Implementar decision automatica de repuestos.
+7. Crear `/repuestos` con solicitud general de repuestos.
+8. Implementar seleccion de departamento.
+9. Conectar acciones de trabajo dentro del departamento.
+10. Implementar movimiento entre departamentos.
+11. Implementar finalizacion/despacho.
+12. Crear `/cliente/ordenes`.
+13. Conectar dashboards restantes por rol.
+14. Hacer QA con usuario `ADMIN` y luego por cada rol especifico.
+15. Limpiar mocks del flujo final.
 
 ## Checklist Daniel
 
@@ -1407,6 +1544,10 @@ GET /api/mecanica/cliente/{cliente_id}/ordenes-trabajo
 - [ ] Orden puede seleccionar departamento.
 - [ ] Se crea historial abierto.
 - [ ] Departamento ve sus ordenes.
+- [ ] Dashboard de departamento muestra solo vehiculos asignados a ese departamento.
+- [ ] Dashboard de departamento oculta ordenes completadas en la tabla activa.
+- [ ] Dashboard de departamento ordena la tabla desde el ingreso mas reciente.
+- [ ] Dashboard de departamento muestra `No hay vehiculos asignados al departamento` cuando aplica.
 - [ ] Departamento registra actividad.
 - [ ] Departamento registra observacion interna.
 - [ ] Departamento registra observacion visible para cliente.
