@@ -15,8 +15,48 @@ function readString(source: JsonRecord, keys: string[]) {
     if (typeof value === "string" && value.trim()) {
       return value.trim()
     }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value)
+    }
   }
   return undefined
+}
+
+function readNestedId(source: JsonRecord, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key]
+
+    if (isRecord(value)) {
+      const id = readString(value, ["id", "uuid", "codigo"])
+
+      if (id) {
+        return id
+      }
+    }
+  }
+
+  return undefined
+}
+
+function normalizeRoleCode(roleCode: string) {
+  const normalizedRole = roleCode
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+
+  if (["ADMINISTRADOR", "ADMINISTRACION"].includes(normalizedRole)) {
+    return "ADMIN"
+  }
+
+  if (["RECEPCION", "RECEPCIONISTA"].includes(normalizedRole)) {
+    return "RECEPCION"
+  }
+
+  return normalizedRole
 }
 
 function readRoles(source: JsonRecord) {
@@ -26,8 +66,10 @@ function readRoles(source: JsonRecord) {
     const normalizedRoles = roles
       .map((role): JsonRecord | undefined => {
         if (typeof role === "string" && role.trim()) {
+          const codigo = normalizeRoleCode(role)
+
           return {
-            codigo: role.trim().toUpperCase(),
+            codigo,
             nombre: role.trim(),
           }
         }
@@ -36,16 +78,23 @@ function readRoles(source: JsonRecord) {
           return undefined
         }
 
-        const codigo = readString(role, ["codigo", "code", "role", "rol"])
+        const roleSource = isRecord(role.rol)
+          ? role.rol
+          : isRecord(role.role)
+            ? role.role
+            : role
+        const rawCode = readString(roleSource, ["codigo", "code", "role", "rol", "nombre"])
 
-        if (!codigo) {
+        if (!rawCode) {
           return undefined
         }
 
+        const codigo = normalizeRoleCode(rawCode)
+
         return {
-          codigo: codigo.toUpperCase(),
-          nombre: readString(role, ["nombre", "name"]) ?? codigo,
-          tipo_rol: readString(role, ["tipo_rol", "type"]),
+          codigo,
+          nombre: readString(roleSource, ["nombre", "name"]) ?? rawCode,
+          tipo_rol: readString(roleSource, ["tipo_rol", "type"]),
         }
       })
       .filter((role): role is JsonRecord => Boolean(role))
@@ -59,7 +108,7 @@ function readRoles(source: JsonRecord) {
   if (singleRole) {
     return [
       {
-        codigo: singleRole.toUpperCase(),
+        codigo: normalizeRoleCode(singleRole),
         nombre: singleRole,
       },
     ]
@@ -166,17 +215,36 @@ export async function POST(request: Request) {
   const fullName =
     readString(userRecord, ["name", "fullName", "full_name"]) ??
     [nombre, apellido].filter(Boolean).join(" ")
+  const empresaId =
+    readString(userRecord, ["empresa_id", "empresaId", "id_empresa", "empresa"]) ??
+    readString(dataRecord, ["empresa_id", "empresaId", "id_empresa", "empresa"]) ??
+    readString(payloadRecord, ["empresa_id", "empresaId", "id_empresa", "empresa"]) ??
+    readNestedId(userRecord, ["empresa"]) ??
+    readNestedId(dataRecord, ["empresa"])
+  const sucursalId =
+    readString(userRecord, ["sucursal_id", "sucursalId", "id_sucursal", "sucursal"]) ??
+    readString(dataRecord, ["sucursal_id", "sucursalId", "id_sucursal", "sucursal"]) ??
+    readString(payloadRecord, ["sucursal_id", "sucursalId", "id_sucursal", "sucursal"]) ??
+    readNestedId(userRecord, ["sucursal"]) ??
+    readNestedId(dataRecord, ["sucursal"])
+  const roles = [
+    readRoles(userRecord),
+    readRoles(dataRecord),
+    readRoles(payloadRecord),
+  ].find((items) => items.length > 0) ?? []
 
   return NextResponse.json({
     token,
     user: {
       id: readString(userRecord, ["id"]),
-      empresaId: readString(userRecord, ["empresa_id", "empresaId"]),
-      sucursalId: readString(userRecord, ["sucursal_id", "sucursalId"]),
+      empresaId,
+      empresa_id: empresaId,
+      sucursalId,
+      sucursal_id: sucursalId,
       email: readString(userRecord, ["email", "correo"]) ?? email,
       username: readString(userRecord, ["username", "usuario"]) ?? email,
       name: fullName || email,
-      roles: readRoles(userRecord),
+      roles,
     },
   })
 }

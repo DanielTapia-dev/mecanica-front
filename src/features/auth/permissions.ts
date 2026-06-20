@@ -29,6 +29,18 @@ const departmentByRole: Partial<Record<RoleCode, Department>> = {
 
 const allDepartments: Department[] = ["enderezado", "pintura", "mecanica", "lavado"]
 
+const defaultPathByRole: Partial<Record<RoleCode, string>> = {
+  ADMIN: "/usuarios",
+  RECEPCION: "/recepcion",
+  REPUESTOS: "/ordenes",
+  CLIENTE: "/ordenes",
+  DEP_ENDEREZADA: "/departamentos/enderezado",
+  DEP_REPARACION_PINTURA: "/departamentos/pintura",
+  DEP_ENSAMBLAJE: "/ordenes",
+  DEP_MECANICA: "/departamentos/mecanica",
+  DEP_LAVADO_CALIDAD: "/departamentos/lavado",
+}
+
 export interface RoleAccessSummary {
   code: string
   title: string
@@ -74,8 +86,42 @@ const roleAccessSummaries: Record<RoleCode, Omit<RoleAccessSummary, "code">> = {
   },
 }
 
+function normalizeRoleCode(roleCode: string) {
+  const normalizedRole = roleCode
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+
+  if (["ADMINISTRADOR", "ADMINISTRACION"].includes(normalizedRole)) {
+    return "ADMIN"
+  }
+
+  if (["RECEPCION", "RECEPCIONISTA"].includes(normalizedRole)) {
+    return "RECEPCION"
+  }
+
+  return normalizedRole
+}
+
 export function getUserRoleCodes(user: AuthUser | null | undefined) {
-  return user?.roles.map((role) => role.codigo.toUpperCase()) ?? []
+  return user?.roles.map((role) => normalizeRoleCode(role.codigo)) ?? []
+}
+
+export function getDefaultPathForUser(user: AuthUser | null | undefined) {
+  const roleCodes = getUserRoleCodes(user) as RoleCode[]
+
+  for (const roleCode of roleCodes) {
+    const path = defaultPathByRole[roleCode]
+
+    if (path) {
+      return path
+    }
+  }
+
+  return "/ordenes"
 }
 
 export function hasAnyRole(
@@ -88,6 +134,15 @@ export function hasAnyRole(
     roleCodes.includes("ADMIN") ||
     allowedRoles.some((role) => roleCodes.includes(role.toUpperCase()))
   )
+}
+
+export function hasExplicitRole(
+  user: AuthUser | null | undefined,
+  allowedRoles: readonly string[]
+) {
+  const roleCodes = getUserRoleCodes(user)
+
+  return allowedRoles.some((role) => roleCodes.includes(role.toUpperCase()))
 }
 
 export function getRoleLabel(roleCode: string) {
@@ -138,9 +193,30 @@ export function canAccessEmpresas(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canCreateWorkOrders(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["RECEPCION"])
+}
+
+export function canAccessWorkOrders(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, [
+    "RECEPCION",
+    "REPUESTOS",
+    "CLIENTE",
+    "DEP_ENDEREZADA",
+    "DEP_REPARACION_PINTURA",
+    "DEP_ENSAMBLAJE",
+    "DEP_MECANICA",
+    "DEP_LAVADO_CALIDAD",
+  ])
+}
+
 export function canAccessPath(user: AuthUser | null | undefined, path: string) {
   if (path === "/") {
     return Boolean(user)
+  }
+
+  if (path === "/recepcion") {
+    return hasExplicitRole(user, ["RECEPCION"])
   }
 
   if (path === "/usuarios") {
@@ -149,6 +225,14 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/empresas") {
     return canAccessEmpresas(user)
+  }
+
+  if (path === "/ordenes/nueva") {
+    return canCreateWorkOrders(user)
+  }
+
+  if (path === "/ordenes" || path.startsWith("/ordenes/")) {
+    return canAccessWorkOrders(user)
   }
 
   const departmentPath = path.match(/^\/departamentos\/([^/]+)/)

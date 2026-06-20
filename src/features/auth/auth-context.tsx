@@ -1,11 +1,13 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { getDefaultPathForUser } from "./permissions"
 import type { AuthRole, AuthUser } from "./types"
 
 interface LoginResult {
   success: boolean
   message?: string
+  redirectTo?: string
 }
 
 interface AuthContextType {
@@ -109,7 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("auth_token")
       }
 
-      return { success: true }
+      return {
+        success: true,
+        redirectTo: getDefaultPathForUser(payload.user),
+      }
     } catch {
       return {
         success: false,

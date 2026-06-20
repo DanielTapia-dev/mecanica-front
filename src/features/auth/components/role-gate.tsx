@@ -1,42 +1,54 @@
 "use client"
 
-import Link from "next/link"
-import { ShieldAlert } from "lucide-react"
-import { buttonVariants } from "@/components/ui/button"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
-import { getUserRoleLabel, hasAnyRole } from "@/features/auth/permissions"
+import {
+  getDefaultPathForUser,
+  hasAnyRole,
+  hasExplicitRole,
+} from "@/features/auth/permissions"
 import type { RoleCode } from "@/features/auth/types"
 
 interface RoleGateProps {
   allowedRoles: readonly RoleCode[]
+  allowAdmin?: boolean
   children: React.ReactNode
 }
 
-export function RoleGate({ allowedRoles, children }: RoleGateProps) {
+export function RoleGate({
+  allowedRoles,
+  allowAdmin = true,
+  children,
+}: RoleGateProps) {
+  const router = useRouter()
   const { user } = useAuth()
+
+  const hasAccess = allowAdmin
+    ? hasAnyRole(user, allowedRoles)
+    : hasExplicitRole(user, allowedRoles)
+  const redirectTo = getDefaultPathForUser(user)
+
+  useEffect(() => {
+    if (!user || hasAccess) {
+      return
+    }
+
+    router.replace(redirectTo)
+  }, [hasAccess, redirectTo, router, user])
 
   if (!user) {
     return null
   }
 
-  if (hasAnyRole(user, allowedRoles)) {
+  if (hasAccess) {
     return <>{children}</>
   }
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
-      <section className="w-full max-w-lg rounded-lg border border-border bg-card p-6 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-          <ShieldAlert className="size-6" />
-        </div>
-        <h1 className="text-xl font-semibold text-foreground">Acceso no habilitado</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Tu rol actual es {getUserRoleLabel(user)} y no tiene permiso para esta vista.
-        </p>
-        <Link href="/" className={buttonVariants({ className: "mt-5" })}>
-          Volver al dashboard
-        </Link>
-      </section>
+      <Loader2 className="size-5 animate-spin text-primary" />
     </div>
   )
 }
