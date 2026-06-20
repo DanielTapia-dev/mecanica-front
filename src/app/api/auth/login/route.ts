@@ -39,6 +39,22 @@ function readNestedId(source: JsonRecord, keys: string[]) {
   return undefined
 }
 
+function readNestedField(source: JsonRecord, keys: string[], fields: string[]) {
+  for (const key of keys) {
+    const value = source[key]
+
+    if (isRecord(value)) {
+      const result = readString(value, fields)
+
+      if (result) {
+        return result
+      }
+    }
+  }
+
+  return undefined
+}
+
 function normalizeRoleCode(roleCode: string) {
   const normalizedRole = roleCode
     .trim()
@@ -232,6 +248,12 @@ export async function POST(request: Request) {
     readRoles(dataRecord),
     readRoles(payloadRecord),
   ].find((items) => items.length > 0) ?? []
+  const empresaNombre =
+    readNestedField(userRecord, ["empresa"], ["nombre_comercial", "razon_social", "nombre"]) ??
+    readNestedField(dataRecord, ["empresa"], ["nombre_comercial", "razon_social", "nombre"])
+  const sucursalNombre =
+    readNestedField(userRecord, ["sucursal"], ["nombre", "codigo"]) ??
+    readNestedField(dataRecord, ["sucursal"], ["nombre", "codigo"])
 
   return NextResponse.json({
     token,
@@ -241,6 +263,8 @@ export async function POST(request: Request) {
       empresa_id: empresaId,
       sucursalId,
       sucursal_id: sucursalId,
+      empresaNombre,
+      sucursalNombre,
       email: readString(userRecord, ["email", "correo"]) ?? email,
       username: readString(userRecord, ["username", "usuario"]) ?? email,
       name: fullName || email,

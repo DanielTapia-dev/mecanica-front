@@ -21,6 +21,8 @@ export interface AuthUser {
   sucursalId?: string
   empresa_id?: string
   sucursal_id?: string
+  empresaNombre?: string
+  sucursalNombre?: string
   email: string
   username: string
   name: string

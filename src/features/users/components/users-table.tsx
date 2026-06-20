@@ -21,29 +21,18 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Loader2, MoreHorizontal, Search, ShieldOff, UserCog, UserPlus } from "lucide-react"
+import { Loader2, Search, UserPlus } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   UsersServiceError,
   usersService,
 } from "@/features/users/services/users-service"
-import type { CreateUsuarioInput, Role, Usuario } from "@/features/users/types"
+import type { CreateUsuarioInput, Usuario, UsuarioRolDetalle } from "@/features/users/types"
+
+type RolResumen = UsuarioRolDetalle["rol"]
 
 const TIPO_ROL_LABELS: Record<string, string> = {
   SISTEMA: "Sistema",
@@ -81,8 +70,7 @@ export function UsersTable() {
   const sucursalId = user?.sucursalId ?? user?.sucursal_id
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
-  const [roleByUsuario, setRoleByUsuario] = useState<Record<string, Role | undefined>>({})
+  const [roleByUsuario, setRoleByUsuario] = useState<Record<string, RolResumen | undefined>>({})
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -91,37 +79,20 @@ export function UsersTable() {
   const [addError, setAddError] = useState<string | null>(null)
   const [isSavingAdd, setIsSavingAdd] = useState(false)
 
-  const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null)
-  const [editError, setEditError] = useState<string | null>(null)
-  const [isSavingEdit, setIsSavingEdit] = useState(false)
-
-  const [removingRoleUsuario, setRemovingRoleUsuario] = useState<Usuario | null>(null)
-  const [removeRoleError, setRemoveRoleError] = useState<string | null>(null)
-  const [isRemovingRole, setIsRemovingRole] = useState(false)
-
   const loadUsuarios = async () => {
     try {
       const token = getAuthToken()
-      const [usuariosList, rolesList, roleAssignments] = await Promise.all([
+      const [usuariosList, roleAssignments] = await Promise.all([
         usersService.listUsuarios({ token }),
-        usersService.listRoles({ token }),
         usersService.listUsuarioRolesDetalle({ token }),
       ])
 
-      const nextRoleByUsuario: Record<string, Role | undefined> = {}
+      const nextRoleByUsuario: Record<string, RolResumen | undefined> = {}
       roleAssignments.forEach((assignment) => {
-        nextRoleByUsuario[assignment.usuario_id] =
-          rolesList.find((role) => role.id === assignment.rol_id) ?? {
-            ...assignment.rol,
-            empresa_id: assignment.empresa_id,
-            sucursal_id: assignment.sucursal_id,
-            creado_en: assignment.creado_en,
-            actualizado_en: assignment.creado_en,
-          }
+        nextRoleByUsuario[assignment.usuario_id] = assignment.rol
       })
 
       setUsuarios(usuariosList)
-      setRoles(rolesList)
       setRoleByUsuario(nextRoleByUsuario)
       setLoadError(null)
     } catch (error) {
@@ -149,77 +120,21 @@ export function UsersTable() {
     }
 
     const formData = new FormData(e.currentTarget)
-    const rolId = formData.get("rol_id") as string
     setIsSavingAdd(true)
     setAddError(null)
 
     try {
       const token = getAuthToken()
-      const nuevoUsuario = await usersService.createUsuario(
+      await usersService.createUsuario(
         readCreateUsuarioInput(formData, empresaId, sucursalId),
         { token }
       )
-      await usersService.assignUsuarioRol(nuevoUsuario.id, rolId, { token })
       await loadUsuarios()
       setIsAddOpen(false)
     } catch (error) {
       setAddError(getErrorMessage(error, "No fue posible crear el usuario."))
     } finally {
       setIsSavingAdd(false)
-    }
-  }
-
-  const handleEditUsuario = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!editingUsuario) return
-
-    const formData = new FormData(e.currentTarget)
-    const nuevoRolId = formData.get("rol_id") as string
-    const rolActual = roleByUsuario[editingUsuario.id]
-
-    if (rolActual?.id === nuevoRolId) {
-      setEditingUsuario(null)
-      return
-    }
-
-    setIsSavingEdit(true)
-    setEditError(null)
-
-    try {
-      const token = getAuthToken()
-
-      if (rolActual) {
-        await usersService.removeUsuarioRol(editingUsuario.id, rolActual.id, { token })
-      }
-
-      await usersService.assignUsuarioRol(editingUsuario.id, nuevoRolId, { token })
-      await loadUsuarios()
-      setEditingUsuario(null)
-    } catch (error) {
-      setEditError(getErrorMessage(error, "No fue posible actualizar el rol del usuario."))
-    } finally {
-      setIsSavingEdit(false)
-    }
-  }
-
-  const handleRemoveRole = async () => {
-    if (!removingRoleUsuario) return
-    const rolActual = roleByUsuario[removingRoleUsuario.id]
-    if (!rolActual) return
-
-    setIsRemovingRole(true)
-    setRemoveRoleError(null)
-
-    try {
-      await usersService.removeUsuarioRol(removingRoleUsuario.id, rolActual.id, {
-        token: getAuthToken(),
-      })
-      await loadUsuarios()
-      setRemovingRoleUsuario(null)
-    } catch (error) {
-      setRemoveRoleError(getErrorMessage(error, "No fue posible quitar el rol del usuario."))
-    } finally {
-      setIsRemovingRole(false)
     }
   }
 
@@ -291,21 +206,6 @@ export function UsersTable() {
                         />
                       </div>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="rol_id">Rol</Label>
-                      <Select name="rol_id" required>
-                        <SelectTrigger className="bg-input border-border">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {roles.map((role) => (
-                            <SelectItem key={role.id} value={role.id}>
-                              {role.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                     {addError && <p className="text-sm text-destructive">{addError}</p>}
                   </div>
                   <DialogFooter>
@@ -339,7 +239,6 @@ export function UsersTable() {
                   <TableHead className="text-muted-foreground">Rol</TableHead>
                   <TableHead className="text-muted-foreground">Teléfono</TableHead>
                   <TableHead className="text-muted-foreground">Estado</TableHead>
-                  <TableHead className="text-muted-foreground w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -392,36 +291,12 @@ export function UsersTable() {
                           {usuario.activo ? "Activo" : "Inactivo"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-popover border-border">
-                            <DropdownMenuItem onClick={() => setEditingUsuario(usuario)}>
-                              <UserCog className="mr-2 h-4 w-4" />
-                              Editar rol
-                            </DropdownMenuItem>
-                            {rolActual && (
-                              <DropdownMenuItem
-                                onClick={() => setRemovingRoleUsuario(usuario)}
-                                className="text-destructive"
-                              >
-                                <ShieldOff className="mr-2 h-4 w-4" />
-                                Quitar rol
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
                     </TableRow>
                   )
                 })}
                 {filteredUsuarios.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                       No se encontraron usuarios.
                     </TableCell>
                   </TableRow>
@@ -431,105 +306,6 @@ export function UsersTable() {
           </div>
         )}
       </CardContent>
-
-      {/* Edit Role Dialog */}
-      <Dialog
-        open={!!editingUsuario}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingUsuario(null)
-            setEditError(null)
-          }
-        }}
-      >
-        <DialogContent className="bg-card border-border">
-          <form onSubmit={handleEditUsuario}>
-            <DialogHeader>
-              <DialogTitle className="text-foreground">Editar Rol</DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Modifique el rol asignado al usuario
-              </DialogDescription>
-            </DialogHeader>
-            {editingUsuario && (
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Nombre completo</Label>
-                  <p className="text-foreground">
-                    {editingUsuario.nombre} {editingUsuario.apellido}
-                  </p>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Correo electrónico</Label>
-                  <p className="text-muted-foreground">{editingUsuario.email}</p>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-rol_id">Rol</Label>
-                  <Select
-                    name="rol_id"
-                    defaultValue={roleByUsuario[editingUsuario.id]?.id}
-                  >
-                    <SelectTrigger className="bg-input border-border">
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
-                          {role.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {editError && <p className="text-sm text-destructive">{editError}</p>}
-              </div>
-            )}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditingUsuario(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSavingEdit}>
-                {isSavingEdit ? "Guardando..." : "Guardar cambios"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Remove Role Confirmation Dialog */}
-      <Dialog
-        open={!!removingRoleUsuario}
-        onOpenChange={(open) => {
-          if (!open) {
-            setRemovingRoleUsuario(null)
-            setRemoveRoleError(null)
-          }
-        }}
-      >
-        <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-foreground">Quitar Rol</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              ¿Seguro que deseas quitar el rol{" "}
-              {removingRoleUsuario && roleByUsuario[removingRoleUsuario.id]?.nombre} a{" "}
-              {removingRoleUsuario?.nombre} {removingRoleUsuario?.apellido}?
-            </DialogDescription>
-          </DialogHeader>
-          {removeRoleError && <p className="text-sm text-destructive">{removeRoleError}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setRemovingRoleUsuario(null)}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleRemoveRole}
-              disabled={isRemovingRole}
-            >
-              {isRemovingRole ? "Quitando..." : "Quitar rol"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   )
 }
