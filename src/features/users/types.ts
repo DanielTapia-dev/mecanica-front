@@ -46,3 +46,11 @@ export interface CreateUsuarioInput {
   password: string
   telefono?: string
 }
+
+export interface UpdateUsuarioInput {
+  nombre?: string
+  apellido?: string
+  email?: string
+  telefono?: string
+  password?: string
+}

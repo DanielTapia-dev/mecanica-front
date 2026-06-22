@@ -30,7 +30,7 @@ const departmentByRole: Partial<Record<RoleCode, Department>> = {
 const allDepartments: Department[] = ["enderezado", "pintura", "mecanica", "lavado"]
 
 const defaultPathByRole: Partial<Record<RoleCode, string>> = {
-  ADMIN: "/usuarios",
+  ADMIN: "/empresas",
   RECEPCION: "/recepcion",
   REPUESTOS: "/ordenes",
   CLIENTE: "/ordenes",
@@ -197,6 +197,10 @@ export function canAccessRoles(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessSucursales(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canCreateWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["RECEPCION"])
 }
@@ -233,6 +237,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/roles") {
     return canAccessRoles(user)
+  }
+
+  if (path === "/sucursales") {
+    return canAccessSucursales(user)
   }
 
   if (path === "/ordenes/nueva") {

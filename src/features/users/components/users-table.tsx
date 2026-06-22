@@ -31,13 +31,24 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Search, UserCog, UserPlus } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Loader2, MoreHorizontal, Pencil, Search, Trash2, UserCog, UserPlus } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   UsersServiceError,
   usersService,
 } from "@/features/users/services/users-service"
-import type { CreateUsuarioInput, Usuario, UsuarioRolDetalle } from "@/features/users/types"
+import type {
+  CreateUsuarioInput,
+  UpdateUsuarioInput,
+  Usuario,
+  UsuarioRolDetalle,
+} from "@/features/users/types"
 import { rolesService } from "@/features/roles/services/roles-service"
 import type { Role } from "@/features/roles/types"
 
@@ -73,6 +84,18 @@ function readCreateUsuarioInput(
   }
 }
 
+function readUpdateUsuarioInput(formData: FormData): UpdateUsuarioInput {
+  const password = (formData.get("password") as string).trim()
+
+  return {
+    nombre: (formData.get("nombre") as string).trim(),
+    apellido: (formData.get("apellido") as string).trim(),
+    email: (formData.get("email") as string).trim(),
+    telefono: (formData.get("telefono") as string)?.trim() || undefined,
+    ...(password ? { password } : {}),
+  }
+}
+
 export function UsersTable() {
   const { user } = useAuth()
   const empresaId = user?.empresaId ?? user?.empresa_id
@@ -80,6 +103,7 @@ export function UsersTable() {
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [roleByUsuario, setRoleByUsuario] = useState<Record<string, RolResumen | undefined>>({})
+  const [usuarioRolIdByUsuario, setUsuarioRolIdByUsuario] = useState<Record<string, string>>({})
   const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
@@ -93,6 +117,14 @@ export function UsersTable() {
   const [assignError, setAssignError] = useState<string | null>(null)
   const [isSavingAssign, setIsSavingAssign] = useState(false)
 
+  const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+
+  const [deletingUsuario, setDeletingUsuario] = useState<Usuario | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const loadUsuarios = async () => {
     try {
       const token = getAuthToken()
@@ -103,12 +135,15 @@ export function UsersTable() {
       ])
 
       const nextRoleByUsuario: Record<string, RolResumen | undefined> = {}
+      const nextUsuarioRolIdByUsuario: Record<string, string> = {}
       roleAssignments.forEach((assignment) => {
         nextRoleByUsuario[assignment.usuario_id] = assignment.rol
+        nextUsuarioRolIdByUsuario[assignment.usuario_id] = assignment.id
       })
 
       setUsuarios(usuariosList)
       setRoleByUsuario(nextRoleByUsuario)
+      setUsuarioRolIdByUsuario(nextUsuarioRolIdByUsuario)
       setAvailableRoles(rolesList.filter((role) => role.activo))
       setLoadError(null)
     } catch (error) {
@@ -166,18 +201,97 @@ export function UsersTable() {
       return
     }
 
+    if (!empresaId || !sucursalId) {
+      setAssignError("No se pudo determinar la empresa del usuario actual.")
+      return
+    }
+
     setIsSavingAssign(true)
     setAssignError(null)
 
     try {
       const token = getAuthToken()
-      await usersService.assignUsuarioRol(assigningUsuario.id, rolId, { token })
+      await usersService.assignUsuarioRol(assigningUsuario.id, rolId, empresaId, sucursalId, {
+        token,
+      })
       await loadUsuarios()
       setAssigningUsuario(null)
     } catch (error) {
       setAssignError(getErrorMessage(error, "No fue posible asignar el rol."))
     } finally {
       setIsSavingAssign(false)
+    }
+  }
+
+  const handleEditUsuario = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingUsuario) return
+
+    const formData = new FormData(e.currentTarget)
+    const selectedRolId = formData.get("rol_id") as string
+    const currentRolId = roleByUsuario[editingUsuario.id]?.id
+    const isChangingRole = Boolean(selectedRolId) && selectedRolId !== currentRolId
+
+    if (isChangingRole && (!empresaId || !sucursalId)) {
+      setEditError("No se pudo determinar la empresa del usuario actual.")
+      return
+    }
+
+    setIsSavingEdit(true)
+    setEditError(null)
+
+    try {
+      const token = getAuthToken()
+      await usersService.updateUsuario(editingUsuario.id, readUpdateUsuarioInput(formData), {
+        token,
+      })
+
+      if (isChangingRole) {
+        const currentUsuarioRolId = usuarioRolIdByUsuario[editingUsuario.id]
+
+        if (currentUsuarioRolId) {
+          await usersService.removeUsuarioRol(currentUsuarioRolId, { token })
+        }
+
+        await usersService.assignUsuarioRol(
+          editingUsuario.id,
+          selectedRolId,
+          empresaId as string,
+          sucursalId as string,
+          { token }
+        )
+      }
+
+      await loadUsuarios()
+      setEditingUsuario(null)
+    } catch (error) {
+      setEditError(getErrorMessage(error, "No fue posible actualizar el usuario."))
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  const handleDeleteUsuario = async () => {
+    if (!deletingUsuario) return
+
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      const token = getAuthToken()
+      const usuarioRolId = usuarioRolIdByUsuario[deletingUsuario.id]
+
+      if (usuarioRolId) {
+        await usersService.removeUsuarioRol(usuarioRolId, { token })
+      }
+
+      await usersService.deleteUsuario(deletingUsuario.id, { token })
+      await loadUsuarios()
+      setDeletingUsuario(null)
+    } catch (error) {
+      setDeleteError(getErrorMessage(error, "No fue posible eliminar el usuario."))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -337,17 +451,36 @@ export function UsersTable() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 whitespace-nowrap"
-                          disabled={tieneRol}
-                          title={tieneRol ? "El usuario ya tiene un rol asignado" : undefined}
-                          onClick={() => setAssigningUsuario(usuario)}
-                        >
-                          <UserCog className="h-4 w-4" />
-                          Asignar Rol
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-popover border-border">
+                            <DropdownMenuItem onClick={() => setEditingUsuario(usuario)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={tieneRol}
+                              title={
+                                tieneRol ? "El usuario ya tiene un rol asignado" : undefined
+                              }
+                              onClick={() => setAssigningUsuario(usuario)}
+                            >
+                              <UserCog className="mr-2 h-4 w-4" />
+                              Asignar Rol
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeletingUsuario(usuario)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   )
@@ -392,7 +525,11 @@ export function UsersTable() {
                 <Label htmlFor="rol_id">Rol</Label>
                 <Select name="rol_id" required>
                   <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Selecciona un rol" />
+                    <SelectValue placeholder="Selecciona un rol">
+                      {(value: string) =>
+                        availableRoles.find((role) => role.id === value)?.nombre ?? value
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {availableRoles.map((role) => (
@@ -414,6 +551,153 @@ export function UsersTable() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Usuario Dialog */}
+      <Dialog
+        open={!!editingUsuario}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingUsuario(null)
+            setEditError(null)
+          }
+        }}
+      >
+        <DialogContent className="bg-card border-border">
+          <form onSubmit={handleEditUsuario}>
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Editar Usuario</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Modifique la información del usuario
+              </DialogDescription>
+            </DialogHeader>
+            {editingUsuario && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-nombre">Nombre</Label>
+                    <Input
+                      id="edit-nombre"
+                      name="nombre"
+                      defaultValue={editingUsuario.nombre}
+                      required
+                      className="bg-input border-border"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-apellido">Apellido</Label>
+                    <Input
+                      id="edit-apellido"
+                      name="apellido"
+                      defaultValue={editingUsuario.apellido}
+                      required
+                      className="bg-input border-border"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-email">Correo electrónico</Label>
+                  <Input
+                    id="edit-email"
+                    name="email"
+                    type="email"
+                    defaultValue={editingUsuario.email}
+                    required
+                    className="bg-input border-border"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-telefono">Teléfono</Label>
+                    <Input
+                      id="edit-telefono"
+                      name="telefono"
+                      defaultValue={editingUsuario.telefono ?? ""}
+                      className="bg-input border-border"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-password">Contraseña</Label>
+                    <Input
+                      id="edit-password"
+                      name="password"
+                      type="password"
+                      placeholder="Dejar en blanco para no cambiar"
+                      minLength={6}
+                      className="bg-input border-border"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-rol_id">Rol</Label>
+                  <Select name="rol_id" defaultValue={roleByUsuario[editingUsuario.id]?.id}>
+                    <SelectTrigger className="bg-input border-border">
+                      <SelectValue placeholder="Selecciona un rol">
+                        {(value: string) =>
+                          availableRoles.find((role) => role.id === value)?.nombre ?? value
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableRoles.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editError && <p className="text-sm text-destructive">{editError}</p>}
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditingUsuario(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSavingEdit}>
+                {isSavingEdit ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!deletingUsuario}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingUsuario(null)
+            setDeleteError(null)
+          }
+        }}
+      >
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Eliminar Usuario</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              ¿Seguro que deseas eliminar a{" "}
+              {deletingUsuario
+                ? `${deletingUsuario.nombre} ${deletingUsuario.apellido}`
+                : "este usuario"}
+              ? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeletingUsuario(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteUsuario}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>

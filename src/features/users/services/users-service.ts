@@ -1,4 +1,11 @@
-import type { CreateUsuarioInput, Role, Usuario, UsuarioRol, UsuarioRolDetalle } from "../types"
+import type {
+  CreateUsuarioInput,
+  Role,
+  UpdateUsuarioInput,
+  Usuario,
+  UsuarioRol,
+  UsuarioRolDetalle,
+} from "../types"
 
 const API_BASE_PATH = "/api/mecanica"
 
@@ -10,6 +17,7 @@ export const usersApiPaths = {
   usuarioRoles: (usuarioId: string) => `${API_BASE_PATH}/usuario-rol/${usuarioId}`,
   usuarioRolesDetalle: `${API_BASE_PATH}/usuario-roles`,
   usuarioRol: `${API_BASE_PATH}/usuario-rol`,
+  usuarioRolById: (usuarioRolId: string) => `${API_BASE_PATH}/usuario-rol/${usuarioRolId}`,
 }
 
 export interface UsersRequestOptions extends Omit<RequestInit, "body"> {
@@ -137,6 +145,21 @@ export const usersService = {
     })
   },
 
+  updateUsuario(usuarioId: string, input: UpdateUsuarioInput, options?: UsersRequestOptions) {
+    return requestUsersApi<Usuario>(usersApiPaths.usuario(usuarioId), {
+      ...options,
+      method: "PUT",
+      body: input,
+    })
+  },
+
+  deleteUsuario(usuarioId: string, options?: UsersRequestOptions) {
+    return requestUsersApi<unknown>(usersApiPaths.usuario(usuarioId), {
+      ...options,
+      method: "DELETE",
+    })
+  },
+
   async listRoles(options?: UsersRequestOptions): Promise<Role[]> {
     const payload = await requestUsersApi<unknown>(usersApiPaths.roles, options)
     return getListData<Role>(payload, ["roles", "data"])
@@ -155,19 +178,29 @@ export const usersService = {
     return getListData<UsuarioRolDetalle>(payload, ["usuario_roles", "usuarioRoles", "data"])
   },
 
-  assignUsuarioRol(usuarioId: string, rolId: string, options?: UsersRequestOptions) {
+  assignUsuarioRol(
+    usuarioId: string,
+    rolId: string,
+    empresaId: string,
+    sucursalId: string,
+    options?: UsersRequestOptions
+  ) {
     return requestUsersApi<unknown>(usersApiPaths.usuarioRol, {
       ...options,
       method: "POST",
-      body: { usuario_id: usuarioId, rol_id: rolId },
+      body: {
+        usuario_id: usuarioId,
+        rol_id: rolId,
+        empresa_id: empresaId,
+        sucursal_id: sucursalId,
+      },
     })
   },
 
-  removeUsuarioRol(usuarioId: string, rolId: string, options?: UsersRequestOptions) {
-    return requestUsersApi<unknown>(usersApiPaths.usuarioRol, {
+  removeUsuarioRol(usuarioRolId: string, options?: UsersRequestOptions) {
+    return requestUsersApi<unknown>(usersApiPaths.usuarioRolById(usuarioRolId), {
       ...options,
       method: "DELETE",
-      body: { usuario_id: usuarioId, rol_id: rolId },
     })
   },
 }

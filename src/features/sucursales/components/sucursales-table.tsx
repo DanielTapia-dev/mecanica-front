@@ -36,63 +36,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Loader2, MoreHorizontal, Pencil, Search, ShieldPlus, Trash2 } from "lucide-react"
-import { useAuth } from "@/features/auth/auth-context"
-import { RolesServiceError, rolesService } from "@/features/roles/services/roles-service"
-import type { CreateRoleInput, Role, TipoRol, UpdateRoleInput } from "@/features/roles/types"
-import { usersService } from "@/features/users/services/users-service"
+import { Loader2, MapPin, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react"
+import {
+  SucursalesApiError,
+  createSucursal,
+  deleteSucursal,
+  fetchSucursales,
+  updateSucursal,
+} from "@/features/sucursales/services/sucursales-service"
+import type { Sucursal, SucursalInput } from "@/features/sucursales/types"
+import { fetchEmpresas } from "@/features/empresas/services/empresas-service"
+import type { Empresa } from "@/features/empresas/types"
 
-const TIPO_ROL_OPTIONS: { value: TipoRol; label: string }[] = [
-  { value: "SISTEMA", label: "Sistema" },
-  { value: "DEPARTAMENTO", label: "Departamento" },
-  { value: "CLIENTE", label: "Cliente" },
-]
-
-const TIPO_ROL_LABELS: Record<string, string> = {
-  SISTEMA: "Sistema",
-  DEPARTAMENTO: "Departamento",
-  CLIENTE: "Cliente",
-}
-
-function getAuthToken() {
-  return localStorage.getItem("auth_token") ?? undefined
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof RolesServiceError ? error.message : fallback
-}
-
-function readCreateRoleInput(
-  formData: FormData,
-  empresaId: string,
-  sucursalId: string
-): CreateRoleInput {
+function readSucursalInput(formData: FormData): SucursalInput {
   return {
-    empresa_id: empresaId,
-    sucursal_id: sucursalId,
-    codigo: (formData.get("codigo") as string).trim().toUpperCase(),
+    empresa_id: formData.get("empresa_id") as string,
+    codigo: (formData.get("codigo") as string).trim(),
     nombre: (formData.get("nombre") as string).trim(),
-    tipo_rol: formData.get("tipo_rol") as string,
+    direccion: (formData.get("direccion") as string)?.trim() || undefined,
+    telefono: (formData.get("telefono") as string)?.trim() || undefined,
     activo: formData.get("activo") === "activo",
   }
 }
 
-function readUpdateRoleInput(formData: FormData): UpdateRoleInput {
-  return {
-    codigo: (formData.get("codigo") as string).trim().toUpperCase(),
-    nombre: (formData.get("nombre") as string).trim(),
-    tipo_rol: formData.get("tipo_rol") as string,
-    activo: formData.get("activo") === "activo",
-  }
-}
-
-export function RolesTable() {
-  const { user } = useAuth()
-  const empresaId = user?.empresaId ?? user?.empresa_id
-  const sucursalId = user?.sucursalId ?? user?.sucursal_id
-
-  const [roles, setRoles] = useState<Role[]>([])
-  const [assignedRoleIds, setAssignedRoleIds] = useState<Set<string>>(new Set())
+export function SucursalesTable() {
+  const [sucursales, setSucursales] = useState<Sucursal[]>([])
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -101,116 +70,102 @@ export function RolesTable() {
   const [addError, setAddError] = useState<string | null>(null)
   const [isSavingAdd, setIsSavingAdd] = useState(false)
 
-  const [editingRole, setEditingRole] = useState<Role | null>(null)
+  const [editingSucursal, setEditingSucursal] = useState<Sucursal | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
-  const [deletingRole, setDeletingRole] = useState<Role | null>(null)
+  const [deletingSucursal, setDeletingSucursal] = useState<Sucursal | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const loadRoles = async () => {
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof SucursalesApiError ? error.message : fallback
+
+  const getEmpresaNombre = (empresaId: string) =>
+    empresas.find((empresa) => empresa.id === empresaId)?.razon_social ?? empresaId
+
+  const loadData = async () => {
     try {
-      const token = getAuthToken()
-      const [data, roleAssignments] = await Promise.all([
-        rolesService.listRoles({ token }),
-        usersService.listUsuarioRolesDetalle({ token }),
+      const [sucursalesData, empresasData] = await Promise.all([
+        fetchSucursales(),
+        fetchEmpresas(),
       ])
-      setRoles(data)
-      setAssignedRoleIds(new Set(roleAssignments.map((assignment) => assignment.rol_id)))
+      setSucursales(sucursalesData.sucursales)
+      setEmpresas(empresasData.empresas)
       setLoadError(null)
     } catch (error) {
-      setLoadError(getErrorMessage(error, "No fue posible cargar los roles."))
+      setLoadError(getErrorMessage(error, "No fue posible cargar las sucursales."))
     }
   }
 
   useEffect(() => {
-    loadRoles().finally(() => setIsLoading(false))
+    loadData().finally(() => setIsLoading(false))
   }, [])
 
-  const filteredRoles = roles.filter(
-    (role) =>
-      role.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      role.codigo.toLowerCase().includes(search.toLowerCase())
+  const filteredSucursales = sucursales.filter(
+    (sucursal) =>
+      sucursal.nombre.toLowerCase().includes(search.toLowerCase()) ||
+      sucursal.codigo.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleAddRole = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddSucursal = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-
-    if (!empresaId || !sucursalId) {
-      setAddError("No se pudo determinar la empresa del usuario actual.")
-      return
-    }
-
     const formData = new FormData(e.currentTarget)
     setIsSavingAdd(true)
     setAddError(null)
 
     try {
-      const token = getAuthToken()
-      await rolesService.createRole(readCreateRoleInput(formData, empresaId, sucursalId), {
-        token,
-      })
-      await loadRoles()
+      await createSucursal(readSucursalInput(formData))
+      await loadData()
       setIsAddOpen(false)
     } catch (error) {
-      setAddError(getErrorMessage(error, "No fue posible crear el rol."))
+      setAddError(getErrorMessage(error, "No fue posible crear la sucursal."))
     } finally {
       setIsSavingAdd(false)
     }
   }
 
-  const handleEditRole = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEditSucursal = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!editingRole) return
-
+    if (!editingSucursal) return
     const formData = new FormData(e.currentTarget)
     setIsSavingEdit(true)
     setEditError(null)
 
     try {
-      const token = getAuthToken()
-      await rolesService.updateRole(editingRole.id, readUpdateRoleInput(formData), { token })
-      await loadRoles()
-      setEditingRole(null)
+      await updateSucursal(editingSucursal.id, readSucursalInput(formData))
+      await loadData()
+      setEditingSucursal(null)
     } catch (error) {
-      setEditError(getErrorMessage(error, "No fue posible actualizar el rol."))
+      setEditError(getErrorMessage(error, "No fue posible actualizar la sucursal."))
     } finally {
       setIsSavingEdit(false)
     }
   }
 
-  const handleDeleteRole = async () => {
-    if (!deletingRole) return
-
-    if (assignedRoleIds.has(deletingRole.id)) {
-      setDeleteError("No se puede eliminar un rol que ya esta asignado a un usuario.")
-      return
-    }
-
+  const handleDeleteSucursal = async () => {
+    if (!deletingSucursal) return
     setIsDeleting(true)
     setDeleteError(null)
 
     try {
-      const token = getAuthToken()
-      await rolesService.deleteRole(deletingRole.id, { token })
-      await loadRoles()
-      setDeletingRole(null)
+      await deleteSucursal(deletingSucursal.id)
+      await loadData()
+      setDeletingSucursal(null)
     } catch (error) {
-      setDeleteError(getErrorMessage(error, "No fue posible eliminar el rol."))
+      setDeleteError(getErrorMessage(error, "No fue posible eliminar la sucursal."))
     } finally {
       setIsDeleting(false)
     }
   }
 
-  const handleToggleActivo = async (role: Role) => {
+  const handleToggleActivo = async (sucursal: Sucursal) => {
     setLoadError(null)
     try {
-      const token = getAuthToken()
-      await rolesService.updateRole(role.id, { activo: !role.activo }, { token })
-      await loadRoles()
+      await updateSucursal(sucursal.id, { activo: !sucursal.activo })
+      await loadData()
     } catch (error) {
-      setLoadError(getErrorMessage(error, "No fue posible actualizar el estado del rol."))
+      setLoadError(getErrorMessage(error, "No fue posible actualizar el estado de la sucursal."))
     }
   }
 
@@ -218,12 +173,12 @@ export function RolesTable() {
     <Card className="bg-card border-border">
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-foreground">Gestión de Roles</CardTitle>
+          <CardTitle className="text-foreground">Gestión de Sucursales</CardTitle>
           <div className="flex gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar roles..."
+                placeholder="Buscar sucursales..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9 w-64 bg-input border-border"
@@ -238,19 +193,36 @@ export function RolesTable() {
             >
               <DialogTrigger asChild>
                 <Button className="gap-2">
-                  <ShieldPlus className="h-4 w-4" />
-                  Agregar Rol
+                  <MapPin className="h-4 w-4" />
+                  Agregar Sucursal
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-card border-border">
-                <form onSubmit={handleAddRole}>
+                <form onSubmit={handleAddSucursal}>
                   <DialogHeader>
-                    <DialogTitle className="text-foreground">Nuevo Rol</DialogTitle>
+                    <DialogTitle className="text-foreground">Nueva Sucursal</DialogTitle>
                     <DialogDescription className="text-muted-foreground">
-                      Complete la información del nuevo rol
+                      Complete la información de la nueva sucursal
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="empresa_id">Empresa</Label>
+                      <Select name="empresa_id" required>
+                        <SelectTrigger className="bg-input border-border">
+                          <SelectValue placeholder="Selecciona una empresa">
+                            {(value: string) => getEmpresaNombre(value)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {empresas.map((empresa) => (
+                            <SelectItem key={empresa.id} value={empresa.id}>
+                              {empresa.razon_social}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="codigo">Código</Label>
@@ -258,7 +230,7 @@ export function RolesTable() {
                           id="codigo"
                           name="codigo"
                           required
-                          maxLength={80}
+                          maxLength={20}
                           className="bg-input border-border"
                         />
                       </div>
@@ -266,7 +238,9 @@ export function RolesTable() {
                         <Label htmlFor="activo">Estado</Label>
                         <Select name="activo" defaultValue="activo">
                           <SelectTrigger className="bg-input border-border">
-                            <SelectValue />
+                            <SelectValue>
+                              {(value: string) => (value === "activo" ? "Activo" : "Inactivo")}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="activo">Activo</SelectItem>
@@ -286,23 +260,12 @@ export function RolesTable() {
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="tipo_rol">Tipo de rol</Label>
-                      <Select name="tipo_rol" defaultValue="DEPARTAMENTO" required>
-                        <SelectTrigger className="bg-input border-border">
-                          <SelectValue>
-                            {(value: TipoRol) =>
-                              TIPO_ROL_LABELS[value] ?? value
-                            }
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIPO_ROL_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="direccion">Dirección</Label>
+                      <Input id="direccion" name="direccion" className="bg-input border-border" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="telefono">Teléfono</Label>
+                      <Input id="telefono" name="telefono" className="bg-input border-border" />
                     </div>
                     {addError && <p className="text-sm text-destructive">{addError}</p>}
                   </div>
@@ -326,42 +289,48 @@ export function RolesTable() {
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Cargando roles...
+            Cargando sucursales...
           </div>
         ) : (
           <div className="rounded-lg border border-border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-muted/50">
+                  <TableHead className="text-muted-foreground">Sucursal</TableHead>
+                  <TableHead className="text-muted-foreground">Empresa</TableHead>
                   <TableHead className="text-muted-foreground">Código</TableHead>
-                  <TableHead className="text-muted-foreground">Nombre</TableHead>
-                  <TableHead className="text-muted-foreground">Tipo</TableHead>
+                  <TableHead className="text-muted-foreground">Teléfono</TableHead>
                   <TableHead className="text-muted-foreground">Estado</TableHead>
                   <TableHead className="text-muted-foreground w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRoles.map((role) => {
-                  const isAssigned = assignedRoleIds.has(role.id)
-
-                  return (
-                  <TableRow key={role.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-foreground">{role.codigo}</TableCell>
-                    <TableCell className="text-foreground">{role.nombre}</TableCell>
+                {filteredSucursales.map((sucursal) => (
+                  <TableRow key={sucursal.id} className="border-border hover:bg-muted/50">
                     <TableCell>
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                        {TIPO_ROL_LABELS[role.tipo_rol] ?? role.tipo_rol}
-                      </Badge>
+                      <div>
+                        <p className="font-medium text-foreground">{sucursal.nombre}</p>
+                        {sucursal.direccion && (
+                          <p className="text-sm text-muted-foreground">{sucursal.direccion}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {getEmpresaNombre(sucursal.empresa_id)}
+                    </TableCell>
+                    <TableCell className="text-foreground">{sucursal.codigo}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {sucursal.telefono || "-"}
                     </TableCell>
                     <TableCell>
                       <Badge
                         className={
-                          role.activo
+                          sucursal.activo
                             ? "bg-emerald-500/20 text-emerald-400"
                             : "bg-muted text-muted-foreground"
                         }
                       >
-                        {role.activo ? "Activo" : "Inactivo"}
+                        {sucursal.activo ? "Activo" : "Inactivo"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -372,21 +341,15 @@ export function RolesTable() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-popover border-border">
-                          <DropdownMenuItem onClick={() => setEditingRole(role)}>
+                          <DropdownMenuItem onClick={() => setEditingSucursal(sucursal)}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleActivo(role)}>
-                            {role.activo ? "Desactivar" : "Activar"}
+                          <DropdownMenuItem onClick={() => handleToggleActivo(sucursal)}>
+                            {sucursal.activo ? "Desactivar" : "Activar"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => setDeletingRole(role)}
-                            disabled={isAssigned}
-                            title={
-                              isAssigned
-                                ? "No se puede eliminar: el rol esta asignado a un usuario"
-                                : undefined
-                            }
+                            onClick={() => setDeletingSucursal(sucursal)}
                             className="text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -396,12 +359,11 @@ export function RolesTable() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                  )
-                })}
-                {filteredRoles.length === 0 && (
+                ))}
+                {filteredSucursales.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      No se encontraron roles.
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No se encontraron sucursales.
                     </TableCell>
                   </TableRow>
                 )}
@@ -413,41 +375,63 @@ export function RolesTable() {
 
       {/* Edit Dialog */}
       <Dialog
-        open={!!editingRole}
+        open={!!editingSucursal}
         onOpenChange={(open) => {
           if (!open) {
-            setEditingRole(null)
+            setEditingSucursal(null)
             setEditError(null)
           }
         }}
       >
         <DialogContent className="bg-card border-border">
-          <form onSubmit={handleEditRole}>
+          <form onSubmit={handleEditSucursal}>
             <DialogHeader>
-              <DialogTitle className="text-foreground">Editar Rol</DialogTitle>
+              <DialogTitle className="text-foreground">Editar Sucursal</DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Modifique la información del rol
+                Modifique la información de la sucursal
               </DialogDescription>
             </DialogHeader>
-            {editingRole && (
+            {editingSucursal && (
               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-empresa_id">Empresa</Label>
+                  <Select name="empresa_id" defaultValue={editingSucursal.empresa_id} required>
+                    <SelectTrigger className="bg-input border-border">
+                      <SelectValue placeholder="Selecciona una empresa">
+                        {(value: string) => getEmpresaNombre(value)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empresas.map((empresa) => (
+                        <SelectItem key={empresa.id} value={empresa.id}>
+                          {empresa.razon_social}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="edit-codigo">Código</Label>
                     <Input
                       id="edit-codigo"
                       name="codigo"
-                      defaultValue={editingRole.codigo}
+                      defaultValue={editingSucursal.codigo}
                       required
-                      maxLength={80}
+                      maxLength={20}
                       className="bg-input border-border"
                     />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="edit-activo">Estado</Label>
-                    <Select name="activo" defaultValue={editingRole.activo ? "activo" : "inactivo"}>
+                    <Select
+                      name="activo"
+                      defaultValue={editingSucursal.activo ? "activo" : "inactivo"}
+                    >
                       <SelectTrigger className="bg-input border-border">
-                        <SelectValue />
+                        <SelectValue>
+                          {(value: string) => (value === "activo" ? "Activo" : "Inactivo")}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="activo">Activo</SelectItem>
@@ -461,34 +445,35 @@ export function RolesTable() {
                   <Input
                     id="edit-nombre"
                     name="nombre"
-                    defaultValue={editingRole.nombre}
+                    defaultValue={editingSucursal.nombre}
                     required
                     maxLength={150}
                     className="bg-input border-border"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="edit-tipo_rol">Tipo de rol</Label>
-                  <Select name="tipo_rol" defaultValue={editingRole.tipo_rol}>
-                    <SelectTrigger className="bg-input border-border">
-                      <SelectValue>
-                        {(value: TipoRol) => TIPO_ROL_LABELS[value] ?? value}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIPO_ROL_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="edit-direccion">Dirección</Label>
+                  <Input
+                    id="edit-direccion"
+                    name="direccion"
+                    defaultValue={editingSucursal.direccion ?? ""}
+                    className="bg-input border-border"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-telefono">Teléfono</Label>
+                  <Input
+                    id="edit-telefono"
+                    name="telefono"
+                    defaultValue={editingSucursal.telefono ?? ""}
+                    className="bg-input border-border"
+                  />
                 </div>
                 {editError && <p className="text-sm text-destructive">{editError}</p>}
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditingRole(null)}>
+              <Button type="button" variant="outline" onClick={() => setEditingSucursal(null)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSavingEdit}>
@@ -501,31 +486,31 @@ export function RolesTable() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog
-        open={!!deletingRole}
+        open={!!deletingSucursal}
         onOpenChange={(open) => {
           if (!open) {
-            setDeletingRole(null)
+            setDeletingSucursal(null)
             setDeleteError(null)
           }
         }}
       >
         <DialogContent className="bg-card border-border">
           <DialogHeader>
-            <DialogTitle className="text-foreground">Eliminar Rol</DialogTitle>
+            <DialogTitle className="text-foreground">Eliminar Sucursal</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              ¿Seguro que deseas eliminar el rol {deletingRole?.nombre}? Esta acción no se puede
-              deshacer.
+              ¿Seguro que deseas eliminar la sucursal {deletingSucursal?.nombre}? Esta acción no
+              se puede deshacer.
             </DialogDescription>
           </DialogHeader>
           {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDeletingRole(null)}>
+            <Button type="button" variant="outline" onClick={() => setDeletingSucursal(null)}>
               Cancelar
             </Button>
             <Button
               type="button"
               variant="destructive"
-              onClick={handleDeleteRole}
+              onClick={handleDeleteSucursal}
               disabled={isDeleting}
             >
               {isDeleting ? "Eliminando..." : "Eliminar"}

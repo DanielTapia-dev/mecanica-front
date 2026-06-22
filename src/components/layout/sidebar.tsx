@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Users,
   Building2,
+  MapPin,
   ShieldCheck,
   Wrench,
   Paintbrush,
@@ -41,11 +42,12 @@ import {
 import { useTheme } from "@/lib/theme/theme-context"
 
 const navItems = [
-  { href: "/recepcion", label: "Recepcion", icon: LayoutDashboard },
-  { href: "/ordenes", label: "Ordenes", icon: ClipboardList },
-  { href: "/usuarios", label: "Usuarios", icon: Users },
   { href: "/empresas", label: "Empresas", icon: Building2 },
+  { href: "/sucursales", label: "Sucursales", icon: MapPin },
   { href: "/roles", label: "Roles", icon: ShieldCheck },
+  { href: "/usuarios", label: "Usuarios", icon: Users },
+  { href: "/ordenes", label: "Ordenes", icon: ClipboardList },
+  { href: "/recepcion", label: "Recepcion", icon: LayoutDashboard },
   { href: "/departamentos/enderezado", label: "Enderezado", icon: Hammer },
   { href: "/departamentos/pintura", label: "Pintura", icon: Paintbrush },
   { href: "/departamentos/mecanica", label: "Mecánica", icon: Wrench },
