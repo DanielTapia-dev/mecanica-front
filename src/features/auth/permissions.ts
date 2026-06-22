@@ -201,6 +201,10 @@ export function canAccessSucursales(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessClientes(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canCreateWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["RECEPCION"])
 }
@@ -241,6 +245,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/sucursales") {
     return canAccessSucursales(user)
+  }
+
+  if (path === "/clientes") {
+    return canAccessClientes(user)
   }
 
   if (path === "/ordenes/nueva") {
