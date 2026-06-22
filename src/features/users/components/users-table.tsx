@@ -21,16 +21,25 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Search, UserPlus } from "lucide-react"
+import { Loader2, Search, UserCog, UserPlus } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   UsersServiceError,
   usersService,
 } from "@/features/users/services/users-service"
 import type { CreateUsuarioInput, Usuario, UsuarioRolDetalle } from "@/features/users/types"
+import { rolesService } from "@/features/roles/services/roles-service"
+import type { Role } from "@/features/roles/types"
 
 type RolResumen = UsuarioRolDetalle["rol"]
 
@@ -71,6 +80,7 @@ export function UsersTable() {
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [roleByUsuario, setRoleByUsuario] = useState<Record<string, RolResumen | undefined>>({})
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -79,12 +89,17 @@ export function UsersTable() {
   const [addError, setAddError] = useState<string | null>(null)
   const [isSavingAdd, setIsSavingAdd] = useState(false)
 
+  const [assigningUsuario, setAssigningUsuario] = useState<Usuario | null>(null)
+  const [assignError, setAssignError] = useState<string | null>(null)
+  const [isSavingAssign, setIsSavingAssign] = useState(false)
+
   const loadUsuarios = async () => {
     try {
       const token = getAuthToken()
-      const [usuariosList, roleAssignments] = await Promise.all([
+      const [usuariosList, roleAssignments, rolesList] = await Promise.all([
         usersService.listUsuarios({ token }),
         usersService.listUsuarioRolesDetalle({ token }),
+        rolesService.listRoles({ token }),
       ])
 
       const nextRoleByUsuario: Record<string, RolResumen | undefined> = {}
@@ -94,6 +109,7 @@ export function UsersTable() {
 
       setUsuarios(usuariosList)
       setRoleByUsuario(nextRoleByUsuario)
+      setAvailableRoles(rolesList.filter((role) => role.activo))
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los usuarios."))
@@ -135,6 +151,33 @@ export function UsersTable() {
       setAddError(getErrorMessage(error, "No fue posible crear el usuario."))
     } finally {
       setIsSavingAdd(false)
+    }
+  }
+
+  const handleAssignRole = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!assigningUsuario) return
+
+    const formData = new FormData(e.currentTarget)
+    const rolId = formData.get("rol_id") as string
+
+    if (!rolId) {
+      setAssignError("Selecciona un rol para asignar.")
+      return
+    }
+
+    setIsSavingAssign(true)
+    setAssignError(null)
+
+    try {
+      const token = getAuthToken()
+      await usersService.assignUsuarioRol(assigningUsuario.id, rolId, { token })
+      await loadUsuarios()
+      setAssigningUsuario(null)
+    } catch (error) {
+      setAssignError(getErrorMessage(error, "No fue posible asignar el rol."))
+    } finally {
+      setIsSavingAssign(false)
     }
   }
 
@@ -239,11 +282,13 @@ export function UsersTable() {
                   <TableHead className="text-muted-foreground">Rol</TableHead>
                   <TableHead className="text-muted-foreground">Teléfono</TableHead>
                   <TableHead className="text-muted-foreground">Estado</TableHead>
+                  <TableHead className="text-muted-foreground w-[1%]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsuarios.map((usuario) => {
                   const rolActual = roleByUsuario[usuario.id]
+                  const tieneRol = Boolean(rolActual)
 
                   return (
                     <TableRow key={usuario.id} className="border-border hover:bg-muted/50">
@@ -291,12 +336,25 @@ export function UsersTable() {
                           {usuario.activo ? "Activo" : "Inactivo"}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 whitespace-nowrap"
+                          disabled={tieneRol}
+                          title={tieneRol ? "El usuario ya tiene un rol asignado" : undefined}
+                          onClick={() => setAssigningUsuario(usuario)}
+                        >
+                          <UserCog className="h-4 w-4" />
+                          Asignar Rol
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   )
                 })}
                 {filteredUsuarios.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       No se encontraron usuarios.
                     </TableCell>
                   </TableRow>
@@ -306,6 +364,58 @@ export function UsersTable() {
           </div>
         )}
       </CardContent>
+
+      {/* Assign Role Dialog */}
+      <Dialog
+        open={!!assigningUsuario}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAssigningUsuario(null)
+            setAssignError(null)
+          }
+        }}
+      >
+        <DialogContent className="bg-card border-border">
+          <form onSubmit={handleAssignRole}>
+            <DialogHeader>
+              <DialogTitle className="text-foreground">Asignar Rol</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Selecciona el rol que se asignará a{" "}
+                {assigningUsuario
+                  ? `${assigningUsuario.nombre} ${assigningUsuario.apellido}`
+                  : "este usuario"}
+                .
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="rol_id">Rol</Label>
+                <Select name="rol_id" required>
+                  <SelectTrigger className="bg-input border-border">
+                    <SelectValue placeholder="Selecciona un rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRoles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {assignError && <p className="text-sm text-destructive">{assignError}</p>}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAssigningUsuario(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isSavingAssign}>
+                {isSavingAssign ? "Asignando..." : "Asignar"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

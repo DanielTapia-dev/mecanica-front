@@ -193,6 +193,10 @@ export function canAccessEmpresas(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessRoles(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canCreateWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["RECEPCION"])
 }
@@ -225,6 +229,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/empresas") {
     return canAccessEmpresas(user)
+  }
+
+  if (path === "/roles") {
+    return canAccessRoles(user)
   }
 
   if (path === "/ordenes/nueva") {
