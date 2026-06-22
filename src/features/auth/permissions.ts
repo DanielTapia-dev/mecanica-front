@@ -205,6 +205,10 @@ export function canAccessClientes(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessVehiculos(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canCreateWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["RECEPCION"])
 }
@@ -249,6 +253,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/clientes") {
     return canAccessClientes(user)
+  }
+
+  if (path === "/vehiculos") {
+    return canAccessVehiculos(user)
   }
 
   if (path === "/ordenes/nueva") {
