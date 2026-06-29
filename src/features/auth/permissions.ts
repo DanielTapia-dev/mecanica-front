@@ -197,6 +197,10 @@ export function canAccessRoles(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessEstadosProceso(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canAccessSucursales(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
@@ -245,6 +249,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/roles") {
     return canAccessRoles(user)
+  }
+
+  if (path === "/estados-proceso") {
+    return canAccessEstadosProceso(user)
   }
 
   if (path === "/sucursales") {

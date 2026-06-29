@@ -14,6 +14,7 @@ export interface Usuario {
   id: string
   empresa_id: string
   sucursal_id: string
+  rol_id: string
   nombre: string
   apellido: string
   email: string
@@ -23,23 +24,10 @@ export interface Usuario {
   actualizado_en: string
 }
 
-export interface UsuarioRol {
-  id: string
-  empresa_id: string
-  sucursal_id: string
-  usuario_id: string
-  rol_id: string
-  creado_en: string
-}
-
-export interface UsuarioRolDetalle extends UsuarioRol {
-  usuario: Pick<Usuario, "id" | "nombre" | "apellido" | "email" | "telefono" | "activo">
-  rol: Pick<Role, "id" | "codigo" | "nombre" | "tipo_rol" | "activo">
-}
-
 export interface CreateUsuarioInput {
   empresa_id: string
   sucursal_id: string
+  rol_id: string
   nombre: string
   apellido: string
   email: string
@@ -48,6 +36,7 @@ export interface CreateUsuarioInput {
 }
 
 export interface UpdateUsuarioInput {
+  rol_id?: string
   nombre?: string
   apellido?: string
   email?: string

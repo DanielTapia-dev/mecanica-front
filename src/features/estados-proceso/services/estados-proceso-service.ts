@@ -1,15 +1,14 @@
-import type { CreateUsuarioInput, Role, UpdateUsuarioInput, Usuario } from "../types"
+import type { CreateEstadoProcesoInput, EstadoProceso, UpdateEstadoProcesoInput } from "../types"
 
 const API_BASE_PATH = "/api/mecanica"
 
-export const usersApiPaths = {
-  usuarios: `${API_BASE_PATH}/usuarios`,
-  usuario: (usuarioId: string) => `${API_BASE_PATH}/usuario/${usuarioId}`,
-  createUsuario: `${API_BASE_PATH}/usuario`,
-  roles: `${API_BASE_PATH}/roles`,
+export const estadosProcesoApiPaths = {
+  estadosProceso: `${API_BASE_PATH}/estados-proceso`,
+  estadoProceso: (estadoProcesoId: string) => `${API_BASE_PATH}/estado-proceso/${estadoProcesoId}`,
+  createEstadoProceso: `${API_BASE_PATH}/estado-proceso`,
 }
 
-export interface UsersRequestOptions extends Omit<RequestInit, "body"> {
+export interface EstadosProcesoRequestOptions extends Omit<RequestInit, "body"> {
   token?: string
   body?: unknown
 }
@@ -73,19 +72,22 @@ async function parseResponseBody(response: Response) {
   }
 }
 
-export class UsersServiceError extends Error {
+export class EstadosProcesoServiceError extends Error {
   readonly status: number
   readonly payload: unknown
 
   constructor(status: number, payload: unknown, fallbackMessage: string) {
     super(getErrorMessage(payload) ?? fallbackMessage)
-    this.name = "UsersServiceError"
+    this.name = "EstadosProcesoServiceError"
     this.status = status
     this.payload = payload
   }
 }
 
-export async function requestUsersApi<T>(path: string, options: UsersRequestOptions = {}) {
+export async function requestEstadosProcesoApi<T>(
+  path: string,
+  options: EstadosProcesoRequestOptions = {}
+) {
   const { body, headers, token, ...init } = options
   const requestHeaders = new Headers(headers)
 
@@ -106,51 +108,65 @@ export async function requestUsersApi<T>(path: string, options: UsersRequestOpti
   const payload = await parseResponseBody(response)
 
   if (!response.ok) {
-    throw new UsersServiceError(
+    throw new EstadosProcesoServiceError(
       response.status,
       payload,
-      "No fue posible completar la solicitud de usuarios."
+      "No fue posible completar la solicitud de estados de proceso."
     )
   }
 
   return payload as T
 }
 
-export const usersService = {
-  async listUsuarios(options?: UsersRequestOptions): Promise<Usuario[]> {
-    const payload = await requestUsersApi<unknown>(usersApiPaths.usuarios, options)
-    return getListData<Usuario>(payload, ["usuarios", "data"])
+export const estadosProcesoService = {
+  async listEstadosProceso(options?: EstadosProcesoRequestOptions): Promise<EstadoProceso[]> {
+    const payload = await requestEstadosProcesoApi<unknown>(
+      estadosProcesoApiPaths.estadosProceso,
+      options
+    )
+    return getListData<EstadoProceso>(payload, ["estados_proceso", "estadosProceso", "data"])
   },
 
-  getUsuario(usuarioId: string, options?: UsersRequestOptions) {
-    return requestUsersApi<Usuario>(usersApiPaths.usuario(usuarioId), options)
+  getEstadoProceso(estadoProcesoId: string, options?: EstadosProcesoRequestOptions) {
+    return requestEstadosProcesoApi<EstadoProceso>(
+      estadosProcesoApiPaths.estadoProceso(estadoProcesoId),
+      options
+    )
   },
 
-  createUsuario(input: CreateUsuarioInput, options?: UsersRequestOptions) {
-    return requestUsersApi<Usuario>(usersApiPaths.createUsuario, {
+  createEstadoProceso(
+    input: CreateEstadoProcesoInput,
+    options?: EstadosProcesoRequestOptions
+  ) {
+    return requestEstadosProcesoApi<EstadoProceso>(estadosProcesoApiPaths.createEstadoProceso, {
       ...options,
       method: "POST",
       body: input,
     })
   },
 
-  updateUsuario(usuarioId: string, input: UpdateUsuarioInput, options?: UsersRequestOptions) {
-    return requestUsersApi<Usuario>(usersApiPaths.usuario(usuarioId), {
-      ...options,
-      method: "PUT",
-      body: input,
-    })
+  updateEstadoProceso(
+    estadoProcesoId: string,
+    input: UpdateEstadoProcesoInput,
+    options?: EstadosProcesoRequestOptions
+  ) {
+    return requestEstadosProcesoApi<EstadoProceso>(
+      estadosProcesoApiPaths.estadoProceso(estadoProcesoId),
+      {
+        ...options,
+        method: "PUT",
+        body: input,
+      }
+    )
   },
 
-  deleteUsuario(usuarioId: string, options?: UsersRequestOptions) {
-    return requestUsersApi<unknown>(usersApiPaths.usuario(usuarioId), {
-      ...options,
-      method: "DELETE",
-    })
-  },
-
-  async listRoles(options?: UsersRequestOptions): Promise<Role[]> {
-    const payload = await requestUsersApi<unknown>(usersApiPaths.roles, options)
-    return getListData<Role>(payload, ["roles", "data"])
+  deleteEstadoProceso(estadoProcesoId: string, options?: EstadosProcesoRequestOptions) {
+    return requestEstadosProcesoApi<unknown>(
+      estadosProcesoApiPaths.estadoProceso(estadoProcesoId),
+      {
+        ...options,
+        method: "DELETE",
+      }
+    )
   },
 }

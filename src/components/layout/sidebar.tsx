@@ -16,6 +16,7 @@ import {
   Paintbrush,
   Droplets,
   Hammer,
+  ListOrdered,
   Settings,
   Menu,
   X,
@@ -46,6 +47,7 @@ import { useTheme } from "@/lib/theme/theme-context"
 const navItems = [
   { href: "/empresas", label: "Empresas", icon: Building2 },
   { href: "/sucursales", label: "Sucursales", icon: MapPin },
+  { href: "/estados-proceso", label: "Estados de Proceso", icon: ListOrdered },
   { href: "/roles", label: "Roles", icon: ShieldCheck },
   { href: "/usuarios", label: "Usuarios", icon: Users },
   { href: "/clientes", label: "Clientes", icon: Contact },

@@ -75,6 +75,26 @@ function normalizeRoleCode(roleCode: string) {
   return normalizedRole
 }
 
+function readSingleRoleObject(source: JsonRecord, key: string) {
+  const value = source[key]
+
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const rawCode = readString(value, ["codigo", "code", "role", "rol", "nombre"])
+
+  if (!rawCode) {
+    return undefined
+  }
+
+  return {
+    codigo: normalizeRoleCode(rawCode),
+    nombre: readString(value, ["nombre", "name"]) ?? rawCode,
+    tipo_rol: readString(value, ["tipo_rol", "type"]),
+  }
+}
+
 function readRoles(source: JsonRecord) {
   const roles = source.roles
 
@@ -118,6 +138,11 @@ function readRoles(source: JsonRecord) {
     if (normalizedRoles.length > 0) {
       return normalizedRoles
     }
+  }
+
+  const singleRoleObject = readSingleRoleObject(source, "rol") ?? readSingleRoleObject(source, "role")
+  if (singleRoleObject) {
+    return [singleRoleObject]
   }
 
   const singleRole = readString(source, ["role", "rol", "perfil"])

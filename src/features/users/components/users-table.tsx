@@ -37,22 +37,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Loader2, MoreHorizontal, Pencil, Search, Trash2, UserCog, UserPlus } from "lucide-react"
+import { Loader2, MoreHorizontal, Pencil, Search, Trash2, UserPlus } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   UsersServiceError,
   usersService,
 } from "@/features/users/services/users-service"
-import type {
-  CreateUsuarioInput,
-  UpdateUsuarioInput,
-  Usuario,
-  UsuarioRolDetalle,
-} from "@/features/users/types"
+import type { CreateUsuarioInput, UpdateUsuarioInput, Usuario } from "@/features/users/types"
 import { rolesService } from "@/features/roles/services/roles-service"
 import type { Role } from "@/features/roles/types"
-
-type RolResumen = UsuarioRolDetalle["rol"]
 
 const TIPO_ROL_LABELS: Record<string, string> = {
   SISTEMA: "Sistema",
@@ -76,6 +69,7 @@ function readCreateUsuarioInput(
   return {
     empresa_id: empresaId,
     sucursal_id: sucursalId,
+    rol_id: formData.get("rol_id") as string,
     nombre: (formData.get("nombre") as string).trim(),
     apellido: (formData.get("apellido") as string).trim(),
     email: (formData.get("email") as string).trim(),
@@ -88,6 +82,7 @@ function readUpdateUsuarioInput(formData: FormData): UpdateUsuarioInput {
   const password = (formData.get("password") as string).trim()
 
   return {
+    rol_id: formData.get("rol_id") as string,
     nombre: (formData.get("nombre") as string).trim(),
     apellido: (formData.get("apellido") as string).trim(),
     email: (formData.get("email") as string).trim(),
@@ -102,9 +97,7 @@ export function UsersTable() {
   const sucursalId = user?.sucursalId ?? user?.sucursal_id
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
-  const [roleByUsuario, setRoleByUsuario] = useState<Record<string, RolResumen | undefined>>({})
-  const [usuarioRolIdByUsuario, setUsuarioRolIdByUsuario] = useState<Record<string, string>>({})
-  const [availableRoles, setAvailableRoles] = useState<Role[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -112,10 +105,6 @@ export function UsersTable() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [isSavingAdd, setIsSavingAdd] = useState(false)
-
-  const [assigningUsuario, setAssigningUsuario] = useState<Usuario | null>(null)
-  const [assignError, setAssignError] = useState<string | null>(null)
-  const [isSavingAssign, setIsSavingAssign] = useState(false)
 
   const [editingUsuario, setEditingUsuario] = useState<Usuario | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
@@ -128,28 +117,20 @@ export function UsersTable() {
   const loadUsuarios = async () => {
     try {
       const token = getAuthToken()
-      const [usuariosList, roleAssignments, rolesList] = await Promise.all([
+      const [usuariosList, rolesList] = await Promise.all([
         usersService.listUsuarios({ token }),
-        usersService.listUsuarioRolesDetalle({ token }),
         rolesService.listRoles({ token }),
       ])
 
-      const nextRoleByUsuario: Record<string, RolResumen | undefined> = {}
-      const nextUsuarioRolIdByUsuario: Record<string, string> = {}
-      roleAssignments.forEach((assignment) => {
-        nextRoleByUsuario[assignment.usuario_id] = assignment.rol
-        nextUsuarioRolIdByUsuario[assignment.usuario_id] = assignment.id
-      })
-
       setUsuarios(usuariosList)
-      setRoleByUsuario(nextRoleByUsuario)
-      setUsuarioRolIdByUsuario(nextUsuarioRolIdByUsuario)
-      setAvailableRoles(rolesList.filter((role) => role.activo))
+      setRoles(rolesList)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los usuarios."))
     }
   }
+
+  const getRoleById = (rolId: string) => roles.find((role) => role.id === rolId)
 
   useEffect(() => {
     loadUsuarios().finally(() => setIsLoading(false))
@@ -189,54 +170,11 @@ export function UsersTable() {
     }
   }
 
-  const handleAssignRole = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!assigningUsuario) return
-
-    const formData = new FormData(e.currentTarget)
-    const rolId = formData.get("rol_id") as string
-
-    if (!rolId) {
-      setAssignError("Selecciona un rol para asignar.")
-      return
-    }
-
-    if (!empresaId || !sucursalId) {
-      setAssignError("No se pudo determinar la empresa del usuario actual.")
-      return
-    }
-
-    setIsSavingAssign(true)
-    setAssignError(null)
-
-    try {
-      const token = getAuthToken()
-      await usersService.assignUsuarioRol(assigningUsuario.id, rolId, empresaId, sucursalId, {
-        token,
-      })
-      await loadUsuarios()
-      setAssigningUsuario(null)
-    } catch (error) {
-      setAssignError(getErrorMessage(error, "No fue posible asignar el rol."))
-    } finally {
-      setIsSavingAssign(false)
-    }
-  }
-
   const handleEditUsuario = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editingUsuario) return
 
     const formData = new FormData(e.currentTarget)
-    const selectedRolId = formData.get("rol_id") as string
-    const currentRolId = roleByUsuario[editingUsuario.id]?.id
-    const isChangingRole = Boolean(selectedRolId) && selectedRolId !== currentRolId
-
-    if (isChangingRole && (!empresaId || !sucursalId)) {
-      setEditError("No se pudo determinar la empresa del usuario actual.")
-      return
-    }
-
     setIsSavingEdit(true)
     setEditError(null)
 
@@ -245,23 +183,6 @@ export function UsersTable() {
       await usersService.updateUsuario(editingUsuario.id, readUpdateUsuarioInput(formData), {
         token,
       })
-
-      if (isChangingRole) {
-        const currentUsuarioRolId = usuarioRolIdByUsuario[editingUsuario.id]
-
-        if (currentUsuarioRolId) {
-          await usersService.removeUsuarioRol(currentUsuarioRolId, { token })
-        }
-
-        await usersService.assignUsuarioRol(
-          editingUsuario.id,
-          selectedRolId,
-          empresaId as string,
-          sucursalId as string,
-          { token }
-        )
-      }
-
       await loadUsuarios()
       setEditingUsuario(null)
     } catch (error) {
@@ -279,12 +200,6 @@ export function UsersTable() {
 
     try {
       const token = getAuthToken()
-      const usuarioRolId = usuarioRolIdByUsuario[deletingUsuario.id]
-
-      if (usuarioRolId) {
-        await usersService.removeUsuarioRol(usuarioRolId, { token })
-      }
-
       await usersService.deleteUsuario(deletingUsuario.id, { token })
       await loadUsuarios()
       setDeletingUsuario(null)
@@ -363,6 +278,25 @@ export function UsersTable() {
                         />
                       </div>
                     </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="rol_id">Rol</Label>
+                      <Select name="rol_id" required>
+                        <SelectTrigger className="bg-input border-border">
+                          <SelectValue placeholder="Selecciona un rol">
+                            {(value: string) => getRoleById(value)?.nombre ?? value}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {roles
+                            .filter((role) => role.activo)
+                            .map((role) => (
+                              <SelectItem key={role.id} value={role.id}>
+                                {role.nombre}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     {addError && <p className="text-sm text-destructive">{addError}</p>}
                   </div>
                   <DialogFooter>
@@ -401,8 +335,7 @@ export function UsersTable() {
               </TableHeader>
               <TableBody>
                 {filteredUsuarios.map((usuario) => {
-                  const rolActual = roleByUsuario[usuario.id]
-                  const tieneRol = Boolean(rolActual)
+                  const rolActual = getRoleById(usuario.rol_id)
 
                   return (
                     <TableRow key={usuario.id} className="border-border hover:bg-muted/50">
@@ -463,16 +396,6 @@ export function UsersTable() {
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              disabled={tieneRol}
-                              title={
-                                tieneRol ? "El usuario ya tiene un rol asignado" : undefined
-                              }
-                              onClick={() => setAssigningUsuario(usuario)}
-                            >
-                              <UserCog className="mr-2 h-4 w-4" />
-                              Asignar Rol
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
                               onClick={() => setDeletingUsuario(usuario)}
                               className="text-destructive"
                             >
@@ -497,62 +420,6 @@ export function UsersTable() {
           </div>
         )}
       </CardContent>
-
-      {/* Assign Role Dialog */}
-      <Dialog
-        open={!!assigningUsuario}
-        onOpenChange={(open) => {
-          if (!open) {
-            setAssigningUsuario(null)
-            setAssignError(null)
-          }
-        }}
-      >
-        <DialogContent className="bg-card border-border">
-          <form onSubmit={handleAssignRole}>
-            <DialogHeader>
-              <DialogTitle className="text-foreground">Asignar Rol</DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Selecciona el rol que se asignará a{" "}
-                {assigningUsuario
-                  ? `${assigningUsuario.nombre} ${assigningUsuario.apellido}`
-                  : "este usuario"}
-                .
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="rol_id">Rol</Label>
-                <Select name="rol_id" required>
-                  <SelectTrigger className="bg-input border-border">
-                    <SelectValue placeholder="Selecciona un rol">
-                      {(value: string) =>
-                        availableRoles.find((role) => role.id === value)?.nombre ?? value
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableRoles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
-                        {role.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {assignError && <p className="text-sm text-destructive">{assignError}</p>}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAssigningUsuario(null)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSavingAssign}>
-                {isSavingAssign ? "Asignando..." : "Asignar"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Edit Usuario Dialog */}
       <Dialog
@@ -631,20 +498,20 @@ export function UsersTable() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="edit-rol_id">Rol</Label>
-                  <Select name="rol_id" defaultValue={roleByUsuario[editingUsuario.id]?.id}>
+                  <Select name="rol_id" defaultValue={editingUsuario.rol_id} required>
                     <SelectTrigger className="bg-input border-border">
                       <SelectValue placeholder="Selecciona un rol">
-                        {(value: string) =>
-                          availableRoles.find((role) => role.id === value)?.nombre ?? value
-                        }
+                        {(value: string) => getRoleById(value)?.nombre ?? value}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {availableRoles.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
-                          {role.nombre}
-                        </SelectItem>
-                      ))}
+                      {roles
+                        .filter((role) => role.activo || role.id === editingUsuario.rol_id)
+                        .map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.nombre}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
