@@ -36,11 +36,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Loader2, MoreHorizontal, Pencil, Search, ShieldPlus, Trash2 } from "lucide-react"
+import { ListChecks, Loader2, MoreHorizontal, Pencil, Search, ShieldPlus, Trash2 } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import { RolesServiceError, rolesService } from "@/features/roles/services/roles-service"
 import type { CreateRoleInput, Role, TipoRol, UpdateRoleInput } from "@/features/roles/types"
 import { usersService } from "@/features/users/services/users-service"
+import { estadosProcesoService } from "@/features/estados-proceso/services/estados-proceso-service"
+import type { EstadoProceso } from "@/features/estados-proceso/types"
+import { RolEstadosServiceError, rolEstadosService } from "@/features/rol-estados/services/rol-estados-service"
+import type { RolEstado } from "@/features/rol-estados/types"
 
 const TIPO_ROL_OPTIONS: { value: TipoRol; label: string }[] = [
   { value: "SISTEMA", label: "Sistema" },
@@ -60,6 +64,10 @@ function getAuthToken() {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof RolesServiceError ? error.message : fallback
+}
+
+function getEstadosErrorMessage(error: unknown, fallback: string) {
+  return error instanceof RolEstadosServiceError ? error.message : fallback
 }
 
 function readCreateRoleInput(
@@ -93,6 +101,8 @@ export function RolesTable() {
 
   const [roles, setRoles] = useState<Role[]>([])
   const [assignedRoleIds, setAssignedRoleIds] = useState<Set<string>>(new Set())
+  const [estadosCatalogo, setEstadosCatalogo] = useState<EstadoProceso[]>([])
+  const [rolEstadosByRol, setRolEstadosByRol] = useState<Record<string, RolEstado[]>>({})
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -109,15 +119,33 @@ export function RolesTable() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const [managingEstadosRole, setManagingEstadosRole] = useState<Role | null>(null)
+  const [selectedEstadoIds, setSelectedEstadoIds] = useState<Set<string>>(new Set())
+  const [estadosError, setEstadosError] = useState<string | null>(null)
+  const [isSavingEstados, setIsSavingEstados] = useState(false)
+
   const loadRoles = async () => {
     try {
       const token = getAuthToken()
-      const [data, usuarios] = await Promise.all([
+      const [data, usuarios, estadosList, rolEstadosList] = await Promise.all([
         rolesService.listRoles({ token }),
         usersService.listUsuarios({ token }),
+        estadosProcesoService.listEstadosProceso({ token }),
+        empresaId
+          ? rolEstadosService.listRolEstadosByEmpresa(empresaId, { token })
+          : Promise.resolve([] as RolEstado[]),
       ])
       setRoles(data)
       setAssignedRoleIds(new Set(usuarios.map((usuario) => usuario.rol_id)))
+      setEstadosCatalogo(estadosList.filter((estado) => estado.activo))
+
+      const nextRolEstadosByRol: Record<string, RolEstado[]> = {}
+      rolEstadosList.forEach((rolEstado) => {
+        const current = nextRolEstadosByRol[rolEstado.rol_id] ?? []
+        current.push(rolEstado)
+        nextRolEstadosByRol[rolEstado.rol_id] = current
+      })
+      setRolEstadosByRol(nextRolEstadosByRol)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los roles."))
@@ -211,6 +239,68 @@ export function RolesTable() {
       await loadRoles()
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible actualizar el estado del rol."))
+    }
+  }
+
+  const handleOpenEstados = (role: Role) => {
+    setManagingEstadosRole(role)
+    setSelectedEstadoIds(
+      new Set((rolEstadosByRol[role.id] ?? []).map((rolEstado) => rolEstado.estado_id))
+    )
+    setEstadosError(null)
+  }
+
+  const handleToggleEstado = (estadoId: string) => {
+    setSelectedEstadoIds((current) => {
+      const next = new Set(current)
+      if (next.has(estadoId)) {
+        next.delete(estadoId)
+      } else {
+        next.add(estadoId)
+      }
+      return next
+    })
+  }
+
+  const handleSaveEstados = async () => {
+    if (!managingEstadosRole) return
+
+    if (!empresaId) {
+      setEstadosError("No se pudo determinar la empresa del usuario actual.")
+      return
+    }
+
+    const currentRolEstados = rolEstadosByRol[managingEstadosRole.id] ?? []
+    const currentEstadoIds = new Set(currentRolEstados.map((rolEstado) => rolEstado.estado_id))
+    const toAdd = [...selectedEstadoIds].filter((estadoId) => !currentEstadoIds.has(estadoId))
+    const toRemove = currentRolEstados.filter(
+      (rolEstado) => !selectedEstadoIds.has(rolEstado.estado_id)
+    )
+
+    setIsSavingEstados(true)
+    setEstadosError(null)
+
+    try {
+      const token = getAuthToken()
+      await Promise.all([
+        ...toAdd.map((estadoId) =>
+          rolEstadosService.createRolEstado(
+            { empresa_id: empresaId, rol_id: managingEstadosRole.id, estado_id: estadoId },
+            { token }
+          )
+        ),
+        ...toRemove.map((rolEstado) =>
+          rolEstadosService.deleteRolEstado(rolEstado.id, { token })
+        ),
+      ])
+      await loadRoles()
+      setManagingEstadosRole(null)
+    } catch (error) {
+      setEstadosError(
+        getEstadosErrorMessage(error, "No fue posible actualizar los estados del rol.")
+      )
+    } finally {
+      setIsSavingEstados(false)
     }
   }
 
@@ -336,6 +426,7 @@ export function RolesTable() {
                   <TableHead className="text-muted-foreground">Código</TableHead>
                   <TableHead className="text-muted-foreground">Nombre</TableHead>
                   <TableHead className="text-muted-foreground">Tipo</TableHead>
+                  <TableHead className="text-muted-foreground">Estados de proceso</TableHead>
                   <TableHead className="text-muted-foreground">Estado</TableHead>
                   <TableHead className="text-muted-foreground w-[50px]"></TableHead>
                 </TableRow>
@@ -343,6 +434,7 @@ export function RolesTable() {
               <TableBody>
                 {filteredRoles.map((role) => {
                   const isAssigned = assignedRoleIds.has(role.id)
+                  const estadosAsignados = rolEstadosByRol[role.id]?.length ?? 0
 
                   return (
                   <TableRow key={role.id} className="border-border hover:bg-muted/50">
@@ -352,6 +444,15 @@ export function RolesTable() {
                       <Badge variant="outline" className="text-xs text-muted-foreground">
                         {TIPO_ROL_LABELS[role.tipo_rol] ?? role.tipo_rol}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEstados(role)}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        {estadosAsignados} estado{estadosAsignados === 1 ? "" : "s"}
+                      </button>
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -375,6 +476,10 @@ export function RolesTable() {
                           <DropdownMenuItem onClick={() => setEditingRole(role)}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleOpenEstados(role)}>
+                            <ListChecks className="mr-2 h-4 w-4" />
+                            Estados
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleToggleActivo(role)}>
                             {role.activo ? "Desactivar" : "Activar"}
@@ -400,7 +505,7 @@ export function RolesTable() {
                 })}
                 {filteredRoles.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No se encontraron roles.
                     </TableCell>
                   </TableRow>
@@ -496,6 +601,64 @@ export function RolesTable() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Estados Dialog */}
+      <Dialog
+        open={!!managingEstadosRole}
+        onOpenChange={(open) => {
+          if (!open) {
+            setManagingEstadosRole(null)
+            setEstadosError(null)
+          }
+        }}
+      >
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Estados de Proceso</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Selecciona los estados de proceso visibles para el rol{" "}
+              {managingEstadosRole?.nombre}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-72 space-y-2 overflow-y-auto py-2">
+            {estadosCatalogo.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No hay estados de proceso activos disponibles.
+              </p>
+            )}
+            {estadosCatalogo.map((estado) => (
+              <label
+                key={estado.id}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground hover:bg-muted/50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedEstadoIds.has(estado.id)}
+                  onChange={() => handleToggleEstado(estado.id)}
+                  className="h-4 w-4 rounded border-input"
+                />
+                <span>
+                  {estado.nombre}{" "}
+                  <span className="text-xs text-muted-foreground">({estado.codigo})</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {estadosError && <p className="text-sm text-destructive">{estadosError}</p>}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setManagingEstadosRole(null)}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveEstados} disabled={isSavingEstados}>
+              {isSavingEstados ? "Guardando..." : "Guardar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
