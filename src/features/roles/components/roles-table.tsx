@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -58,10 +58,6 @@ const TIPO_ROL_LABELS: Record<string, string> = {
   CLIENTE: "Cliente",
 }
 
-function getAuthToken() {
-  return localStorage.getItem("auth_token") ?? undefined
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof RolesServiceError ? error.message : fallback
 }
@@ -95,9 +91,9 @@ function readUpdateRoleInput(formData: FormData): UpdateRoleInput {
 }
 
 export function RolesTable() {
-  const { user } = useAuth()
-  const empresaId = user?.empresaId ?? user?.empresa_id
-  const sucursalId = user?.sucursalId ?? user?.sucursal_id
+  const { sessionScope } = useAuth()
+  const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
 
   const [roles, setRoles] = useState<Role[]>([])
   const [assignedRoleIds, setAssignedRoleIds] = useState<Set<string>>(new Set())
@@ -124,15 +120,14 @@ export function RolesTable() {
   const [estadosError, setEstadosError] = useState<string | null>(null)
   const [isSavingEstados, setIsSavingEstados] = useState(false)
 
-  const loadRoles = async () => {
+  const loadRoles = useCallback(async () => {
     try {
-      const token = getAuthToken()
       const [data, usuarios, estadosList, rolEstadosList] = await Promise.all([
-        rolesService.listRoles({ token }),
-        usersService.listUsuarios({ token }),
-        estadosProcesoService.listEstadosProceso({ token }),
+        rolesService.listRoles(),
+        usersService.listUsuarios(),
+        estadosProcesoService.listEstadosProceso(),
         empresaId
-          ? rolEstadosService.listRolEstadosByEmpresa(empresaId, { token })
+          ? rolEstadosService.listRolEstadosByEmpresa(empresaId)
           : Promise.resolve([] as RolEstado[]),
       ])
       setRoles(data)
@@ -150,11 +145,25 @@ export function RolesTable() {
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los roles."))
     }
-  }
+  }, [empresaId])
 
   useEffect(() => {
-    loadRoles().finally(() => setIsLoading(false))
-  }, [])
+    let isMounted = true
+
+    async function loadInitialRoles() {
+      await loadRoles()
+
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
+
+    void loadInitialRoles()
+
+    return () => {
+      isMounted = false
+    }
+  }, [loadRoles])
 
   const filteredRoles = roles.filter(
     (role) =>
@@ -175,10 +184,7 @@ export function RolesTable() {
     setAddError(null)
 
     try {
-      const token = getAuthToken()
-      await rolesService.createRole(readCreateRoleInput(formData, empresaId, sucursalId), {
-        token,
-      })
+      await rolesService.createRole(readCreateRoleInput(formData, empresaId, sucursalId))
       await loadRoles()
       setIsAddOpen(false)
     } catch (error) {
@@ -197,8 +203,7 @@ export function RolesTable() {
     setEditError(null)
 
     try {
-      const token = getAuthToken()
-      await rolesService.updateRole(editingRole.id, readUpdateRoleInput(formData), { token })
+      await rolesService.updateRole(editingRole.id, readUpdateRoleInput(formData))
       await loadRoles()
       setEditingRole(null)
     } catch (error) {
@@ -220,8 +225,7 @@ export function RolesTable() {
     setDeleteError(null)
 
     try {
-      const token = getAuthToken()
-      await rolesService.deleteRole(deletingRole.id, { token })
+      await rolesService.deleteRole(deletingRole.id)
       await loadRoles()
       setDeletingRole(null)
     } catch (error) {
@@ -234,8 +238,7 @@ export function RolesTable() {
   const handleToggleActivo = async (role: Role) => {
     setLoadError(null)
     try {
-      const token = getAuthToken()
-      await rolesService.updateRole(role.id, { activo: !role.activo }, { token })
+      await rolesService.updateRole(role.id, { activo: !role.activo })
       await loadRoles()
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible actualizar el estado del rol."))
@@ -281,16 +284,14 @@ export function RolesTable() {
     setEstadosError(null)
 
     try {
-      const token = getAuthToken()
       await Promise.all([
         ...toAdd.map((estadoId) =>
           rolEstadosService.createRolEstado(
-            { empresa_id: empresaId, rol_id: managingEstadosRole.id, estado_id: estadoId },
-            { token }
+            { empresa_id: empresaId, rol_id: managingEstadosRole.id, estado_id: estadoId }
           )
         ),
         ...toRemove.map((rolEstado) =>
-          rolEstadosService.deleteRolEstado(rolEstado.id, { token })
+          rolEstadosService.deleteRolEstado(rolEstado.id)
         ),
       ])
       await loadRoles()

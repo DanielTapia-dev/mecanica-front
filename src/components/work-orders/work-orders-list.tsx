@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { AlertCircle, ClipboardList, Loader2, Search } from "lucide-react"
+import {
+  AlertCircle,
+  ClipboardList,
+  Loader2,
+  MoreHorizontal,
+  Search,
+} from "lucide-react"
 import { ModuleHeader } from "@/components/layout/module-header"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -16,7 +22,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useAuth } from "@/features/auth/auth-context"
+import { ESTADO_PROCESO_CODES } from "@/features/estados-proceso/constants"
+import { WorkOrderStateTransitionDialog } from "@/features/work-orders/components/work-order-state-transition-dialog"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
+import {
+  hasAnyRole,
+  hasExplicitRole,
+} from "@/features/auth/permissions"
+import {
+  canAccessCurrentProcessState,
+  loadProcessStateAccess,
+  type ProcessStateAccess,
+} from "@/features/work-orders/state-access"
 import type { WorkOrderListItem } from "@/features/work-orders/types"
 import {
   filterWorkOrders,
@@ -26,12 +44,11 @@ import {
   sortWorkOrdersByUpdatedAt,
 } from "@/features/work-orders/utils"
 
-function getAuthToken() {
-  return localStorage.getItem("auth_token") ?? undefined
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "No fue posible cargar las ordenes."
+function getErrorMessage(
+  error: unknown,
+  fallback = "No fue posible cargar las ordenes."
+) {
+  return error instanceof Error ? error.message : fallback
 }
 
 function formatDate(value?: string | null) {
@@ -46,10 +63,18 @@ function formatDate(value?: string | null) {
 }
 
 export function WorkOrdersList() {
+  const { user, sessionScope } = useAuth()
   const [orders, setOrders] = useState<WorkOrderListItem[]>([])
   const [query, setQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [stateAccessError, setStateAccessError] = useState<string | null>(null)
+  const [stateAccess, setStateAccess] = useState<ProcessStateAccess>({
+    allowedProcessStateIds: new Set(),
+    processStates: [],
+  })
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingStateAccess, setIsLoadingStateAccess] = useState(true)
 
   useEffect(() => {
     let isMounted = true
@@ -57,11 +82,16 @@ export function WorkOrdersList() {
     async function loadOrders() {
       setIsLoading(true)
       setError(null)
+      setActionError(null)
 
       try {
-        const result = await workOrdersService.listWorkOrders(undefined, {
-          token: getAuthToken(),
-        })
+        const result = await workOrdersService.listWorkOrders(
+          sessionScope.sucursal_id
+            ? { sucursal_id: sessionScope.sucursal_id }
+            : sessionScope.empresa_id
+              ? { empresa_id: sessionScope.empresa_id }
+              : undefined
+        )
 
         if (isMounted) {
           setOrders(sortWorkOrdersByUpdatedAt(result.data))
@@ -83,11 +113,67 @@ export function WorkOrdersList() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [sessionScope.empresa_id, sessionScope.sucursal_id])
 
-  const visibleOrders = query.trim()
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadAccess() {
+      if (!user) {
+        setStateAccess({
+          allowedProcessStateIds: new Set(),
+          processStates: [],
+        })
+        setStateAccessError(null)
+        setIsLoadingStateAccess(false)
+        return
+      }
+
+      setIsLoadingStateAccess(true)
+      setStateAccessError(null)
+
+      try {
+        const result = await loadProcessStateAccess(user)
+
+        if (isMounted) {
+          setStateAccess(result)
+        }
+      } catch (loadError) {
+        if (isMounted) {
+          setStateAccess({
+            allowedProcessStateIds: new Set(),
+            processStates: [],
+          })
+          setStateAccessError(getErrorMessage(loadError))
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStateAccess(false)
+        }
+      }
+    }
+
+    void loadAccess()
+
+    return () => {
+      isMounted = false
+    }
+  }, [user])
+
+  const filteredOrders = query.trim()
     ? filterWorkOrders(orders, { query: query.trim() })
     : orders
+  const visibleOrders =
+    !isLoadingStateAccess && !stateAccessError
+      ? filteredOrders.filter((order) =>
+          canAccessCurrentProcessState(user, order, stateAccess)
+        )
+      : []
+  const isPageLoading = isLoading || isLoadingStateAccess
+  const canOpenNewOrder = hasAnyRole(user, ["ASESOR", "RECEPCION"])
+  const newOrderHref = hasExplicitRole(user, ["ASESOR"])
+    ? "/departamentos/asesor/nueva-orden"
+    : "/ordenes/nueva"
 
   return (
     <div className="space-y-5">
@@ -97,9 +183,11 @@ export function WorkOrdersList() {
         icon={<ClipboardList className="size-6" />}
         iconClassName="bg-primary text-primary-foreground"
         actions={
-          <Link href="/ordenes/nueva" className={buttonVariants()}>
-            Nueva orden
-          </Link>
+          canOpenNewOrder ? (
+            <Link href={newOrderHref} className={buttonVariants()}>
+              Nueva orden
+            </Link>
+          ) : null
         }
       />
 
@@ -115,7 +203,7 @@ export function WorkOrdersList() {
             />
           </div>
 
-          {isLoading && (
+          {isPageLoading && (
             <div className="flex min-h-[280px] items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
               Cargando ordenes...
@@ -129,7 +217,21 @@ export function WorkOrdersList() {
             </div>
           )}
 
-          {!isLoading && !error && visibleOrders.length === 0 && (
+          {stateAccessError && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="size-4" />
+              {stateAccessError}
+            </div>
+          )}
+
+          {actionError && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="size-4" />
+              {actionError}
+            </div>
+          )}
+
+          {!isPageLoading && !error && !stateAccessError && visibleOrders.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
               <div className="flex size-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                 <ClipboardList className="size-5" />
@@ -137,13 +239,13 @@ export function WorkOrdersList() {
               <div>
                 <p className="font-medium text-foreground">Sin ordenes para mostrar</p>
                 <p className="text-sm text-muted-foreground">
-                  Crea una nueva orden o cambia el criterio de busqueda.
+                  No hay ordenes en los estados habilitados para tu rol.
                 </p>
               </div>
             </div>
           )}
 
-          {!isLoading && !error && visibleOrders.length > 0 && (
+          {!isPageLoading && !error && !stateAccessError && visibleOrders.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -157,30 +259,75 @@ export function WorkOrdersList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {visibleOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium text-foreground">
-                      {order.codigo || order.id}
-                    </TableCell>
-                    <TableCell>{getVehicleDisplayName(order)}</TableCell>
-                    <TableCell>{getCustomerDisplayName(order)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{order.etapa_actual}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge>{order.estado_general}</Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(getWorkOrderUpdatedAt(order))}</TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/ordenes/${order.id}`}
-                        className={buttonVariants({ variant: "outline", size: "sm" })}
-                      >
-                        Ver
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {visibleOrders.map((order) => {
+                  const hasOrderStateAccess = canAccessCurrentProcessState(
+                    user,
+                    order,
+                    stateAccess
+                  )
+
+                  return (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium text-foreground">
+                        {order.codigo || order.id}
+                      </TableCell>
+                      <TableCell>{getVehicleDisplayName(order)}</TableCell>
+                      <TableCell>{getCustomerDisplayName(order)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{order.etapa_actual}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge>{order.estado_general}</Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(getWorkOrderUpdatedAt(order))}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/ordenes/${order.id}`}
+                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                          >
+                            Ver
+                          </Link>
+                          <WorkOrderStateTransitionDialog
+                            order={order}
+                            processStates={stateAccess.processStates}
+                            allowedSourceStateCodes={[ESTADO_PROCESO_CODES.ASESOR]}
+                            allowedTargetStateCodes={[ESTADO_PROCESO_CODES.JEFE_TALLER]}
+                            disabled={!hasOrderStateAccess}
+                            unavailableMessage="Esta orden solo se puede enviar desde Asesoria / Ingreso hacia Jefe de Taller."
+                            onError={setActionError}
+                            onOrderUpdated={(updatedOrder) => {
+                              setOrders((currentOrders) =>
+                                sortWorkOrdersByUpdatedAt(
+                                  currentOrders.map((currentOrder) =>
+                                    currentOrder.id === order.id
+                                      ? updatedOrder
+                                      : currentOrder
+                                  )
+                                )
+                              )
+                            }}
+                            trigger={({ isSubmitting }) => (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon-sm"
+                                disabled={isSubmitting}
+                                aria-label={`Opciones de la orden ${order.codigo || order.id}`}
+                              >
+                                {isSubmitting ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <MoreHorizontal className="size-4" />
+                                )}
+                              </Button>
+                            )}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}

@@ -1,4 +1,5 @@
 import type { RoleCode } from "@/features/auth/types"
+import type { EstadoProcesoCode } from "@/features/estados-proceso/constants"
 
 export type EntityId = string
 export type IsoDateString = string
@@ -10,6 +11,7 @@ export const WORK_ORDER_GENERAL_STATUSES = [
 ] as const
 
 export type WorkOrderGeneralStatus = (typeof WORK_ORDER_GENERAL_STATUSES)[number]
+export type WorkOrderGeneralStatusValue = WorkOrderGeneralStatus | string
 
 export const WORK_ORDER_STAGES = [
   "Ingreso",
@@ -20,6 +22,12 @@ export const WORK_ORDER_STAGES = [
 ] as const
 
 export type WorkOrderStage = (typeof WORK_ORDER_STAGES)[number]
+export type WorkOrderStageValue = WorkOrderStage | string
+
+export const WORK_ORDER_SUB_STATES = ["Pendiente", "En proceso", "Completada"] as const
+
+export type WorkOrderSubState = (typeof WORK_ORDER_SUB_STATES)[number]
+export type WorkOrderSubStateValue = WorkOrderSubState | string
 
 export const OPERATIONAL_DEPARTMENT_SLUGS = [
   "enderezado",
@@ -83,7 +91,9 @@ export interface CustomerSummary {
 
 export interface VehicleSummary {
   id: EntityId
-  cliente_id: EntityId
+  cliente_id?: EntityId | null
+  cliente_nombre?: string | null
+  cliente_cedula?: string | null
   placa: string
   vin?: string | null
   marca: string
@@ -178,12 +188,28 @@ export interface WorkOrderAttachment {
 export interface WorkOrder {
   id: EntityId
   codigo: string
-  cliente_id: EntityId
+  codigo_seguimiento?: string | null
+  empresa_id?: EntityId | null
+  sucursal_id?: EntityId | null
+  broker_id?: EntityId | null
+  aseguradora_id?: EntityId | null
+  broker?: string | null
+  aseguradora?: string | null
+  cliente_id?: EntityId | null
   vehiculo_id: EntityId
-  estado_general: WorkOrderGeneralStatus
-  etapa_actual: WorkOrderStage
+  estado_general: WorkOrderGeneralStatusValue
+  etapa_actual: WorkOrderStageValue
+  estado_actual_id?: EntityId | null
+  estado_id?: EntityId | null
+  estado_proceso_id?: EntityId | null
+  estado_codigo?: EstadoProcesoCode | string | null
+  estado_actual_codigo?: EstadoProcesoCode | string | null
+  estado_proceso_codigo?: EstadoProcesoCode | string | null
+  sub_estado_actual?: WorkOrderSubStateValue | null
   requiere_repuestos: boolean
   repuestos_completos: boolean
+  encuesta_realizada?: boolean
+  fecha_encuesta?: IsoDateString | null
   departamento_actual_id?: EntityId | null
   actividad_actual?: string | null
   observacion_cliente?: string | null
@@ -199,6 +225,16 @@ export interface WorkOrder {
   cliente?: CustomerSummary
   vehiculo?: VehicleSummary
   departamento_actual?: OperationalDepartment | null
+  estado_actual?: {
+    id?: EntityId
+    codigo?: EstadoProcesoCode | string
+    nombre?: string
+  } | null
+  estado_proceso?: {
+    id?: EntityId
+    codigo?: EstadoProcesoCode | string
+    nombre?: string
+  } | null
   solicitud_repuestos?: SparePartRequest | null
   historial_departamentos?: WorkOrderDepartmentHistory[]
   comentarios?: WorkOrderComment[]
@@ -209,12 +245,28 @@ export type WorkOrderListItem = Pick<
   WorkOrder,
   | "id"
   | "codigo"
+  | "codigo_seguimiento"
+  | "empresa_id"
+  | "sucursal_id"
+  | "broker_id"
+  | "aseguradora_id"
+  | "broker"
+  | "aseguradora"
   | "cliente_id"
   | "vehiculo_id"
   | "estado_general"
   | "etapa_actual"
+  | "estado_actual_id"
+  | "estado_id"
+  | "estado_proceso_id"
+  | "estado_codigo"
+  | "estado_actual_codigo"
+  | "estado_proceso_codigo"
+  | "sub_estado_actual"
   | "requiere_repuestos"
   | "repuestos_completos"
+  | "encuesta_realizada"
+  | "fecha_encuesta"
   | "departamento_actual_id"
   | "actividad_actual"
   | "observacion_cliente"
@@ -226,12 +278,18 @@ export type WorkOrderListItem = Pick<
   | "cliente"
   | "vehiculo"
   | "departamento_actual"
+  | "estado_actual"
+  | "estado_proceso"
 >
 
 export interface WorkOrderListFilters {
   query?: string
+  empresa_id?: EntityId
+  sucursal_id?: EntityId
   cliente_id?: EntityId
+  cliente_cedula?: string
   vehiculo_id?: EntityId
+  estado_actual_id?: EntityId
   estado_general?: WorkOrderGeneralStatus
   etapa_actual?: WorkOrderStage
   departamento_actual_id?: EntityId
@@ -262,16 +320,18 @@ export interface CreateCustomerInput {
 }
 
 export interface CreateVehicleInput {
-  empresa_id?: EntityId
-  sucursal_id?: EntityId
-  cliente_id: EntityId
+  empresa_id: EntityId
+  sucursal_id: EntityId
+  cliente_id?: EntityId | null
+  cliente_nombre?: string | null
+  cliente_cedula?: string | null
   placa: string
-  vin?: string
-  marca: string
-  modelo: string
-  anio?: number
-  color?: string
-  kilometraje?: number
+  vin?: string | null
+  marca?: string | null
+  modelo?: string | null
+  anio?: number | null
+  color?: string | null
+  kilometraje?: number | null
 }
 
 export interface SparePartRequestListFilters {
@@ -281,20 +341,46 @@ export interface SparePartRequestListFilters {
 }
 
 export interface CreateWorkOrderInput {
-  empresa_id?: EntityId
-  sucursal_id?: EntityId
-  cliente_id: EntityId
+  empresa_id: EntityId
+  sucursal_id: EntityId
   vehiculo_id: EntityId
-  estado_general: WorkOrderGeneralStatus
-  etapa_actual: WorkOrderStage
-  repuestos_completos: boolean
-  departamento_actual_id: EntityId | null
-  motivo_ingreso: string
-  observacion_interna?: string
-  observacion_cliente?: string
-  requiere_repuestos: boolean
-  actividad_actual?: string
-  creado_por_usuario_id?: EntityId
+  creado_por_usuario_id: EntityId
+  estado_actual_id?: EntityId | null
+  aseguradora_id?: EntityId | null
+  broker_id?: EntityId | null
+  sub_estado_actual?: WorkOrderSubStateValue | null
+  encuesta_realizada?: boolean
+  fecha_encuesta?: IsoDateString | null
+  fecha_inicio_proceso?: IsoDateString | null
+  fecha_finalizacion?: IsoDateString | null
+}
+
+export interface UpdateWorkOrderInput {
+  estado_actual_id?: EntityId | null
+  aseguradora_id?: EntityId | null
+  broker_id?: EntityId | null
+  sub_estado_actual?: WorkOrderSubStateValue | null
+  encuesta_realizada?: boolean
+  fecha_encuesta?: IsoDateString | null
+  observacion_cliente?: string | null
+  actualizado_por_usuario_id?: EntityId | null
+  fecha_inicio_proceso?: IsoDateString | null
+  fecha_finalizacion?: IsoDateString | null
+}
+
+export interface CreateWorkOrderStateHistoryInput {
+  empresa_id: EntityId
+  sucursal_id: EntityId
+  orden_id: EntityId
+  estado_id: EntityId
+  sub_estado?: WorkOrderSubStateValue | null
+  registrado_por_usuario_id: EntityId
+}
+
+export interface MoveWorkOrderToProcessStateInput {
+  orden_id: EntityId
+  estado_actual_id: EntityId
+  sub_estado_actual?: WorkOrderSubStateValue | null
 }
 
 export interface AssignDepartmentInput {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -68,10 +68,14 @@ function readClienteInput(
   }
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof ClientesApiError ? error.message : fallback
+}
+
 export function ClientesTable() {
-  const { user } = useAuth()
-  const empresaId = user?.empresaId ?? user?.empresa_id
-  const sucursalId = user?.sucursalId ?? user?.sucursal_id
+  const { sessionScope } = useAuth()
+  const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
 
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [search, setSearch] = useState("")
@@ -90,10 +94,7 @@ export function ClientesTable() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const getErrorMessage = (error: unknown, fallback: string) =>
-    error instanceof ClientesApiError ? error.message : fallback
-
-  const loadClientes = async () => {
+  const loadClientes = useCallback(async () => {
     try {
       const data = await fetchClientes()
       setClientes(data.clientes)
@@ -101,11 +102,25 @@ export function ClientesTable() {
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los clientes."))
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadClientes().finally(() => setIsLoading(false))
-  }, [])
+    let isMounted = true
+
+    async function loadInitialClientes() {
+      await loadClientes()
+
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
+
+    void loadInitialClientes()
+
+    return () => {
+      isMounted = false
+    }
+  }, [loadClientes])
 
   const filteredClientes = clientes.filter(
     (cliente) =>

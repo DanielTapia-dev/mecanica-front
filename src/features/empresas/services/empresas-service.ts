@@ -1,14 +1,10 @@
 import type { Empresa, EmpresaInput } from "../types"
+import { notifyUnauthorizedResponse } from "@/features/auth/unauthorized-session"
 
 export class EmpresasApiError extends Error {}
 
 interface EmpresasListResponse {
   empresas: Empresa[]
-}
-
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem("auth_token")
-  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function parseJson(response: Response) {
@@ -30,7 +26,6 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
     },
     cache: "no-store",
   })
@@ -38,6 +33,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const payload = await parseJson(response)
 
   if (!response.ok) {
+    notifyUnauthorizedResponse(response.status, payload)
     const message =
       (payload as { message?: string } | null)?.message ??
       "No fue posible completar la solicitud."

@@ -52,7 +52,7 @@ function optionalText(value: string) {
   return normalizedValue || undefined
 }
 
-export function NewWorkOrderForm() {
+export function AsesorNewWorkOrderForm() {
   const router = useRouter()
   const { sessionScope } = useAuth()
   const [vehicleForm, setVehicleForm] = useState(emptyVehicleForm)
@@ -190,13 +190,6 @@ export function NewWorkOrderForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Nueva orden</h1>
-        <p className="text-sm text-muted-foreground">
-          Registra el vehiculo para abrir la orden de trabajo.
-        </p>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -209,9 +202,9 @@ export function NewWorkOrderForm() {
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="grid gap-2 md:col-span-2 xl:col-span-4">
-            <Label htmlFor="placa">Placa</Label>
+            <Label htmlFor="asesor_placa">Placa</Label>
             <Input
-              id="placa"
+              id="asesor_placa"
               value={vehicleForm.placa}
               onChange={(event) => updateVehicleField("placa", event.target.value)}
               placeholder="ABC123"
@@ -221,9 +214,9 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="cliente_nombre">Nombre del cliente (opcional)</Label>
+            <Label htmlFor="asesor_cliente_nombre">Nombre del cliente (opcional)</Label>
             <Input
-              id="cliente_nombre"
+              id="asesor_cliente_nombre"
               value={vehicleForm.cliente_nombre}
               onChange={(event) => updateVehicleField("cliente_nombre", event.target.value)}
               placeholder="Cliente Prueba"
@@ -231,9 +224,9 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="cliente_cedula">Cedula del cliente (opcional)</Label>
+            <Label htmlFor="asesor_cliente_cedula">Cedula del cliente (opcional)</Label>
             <Input
-              id="cliente_cedula"
+              id="asesor_cliente_cedula"
               value={vehicleForm.cliente_cedula}
               onChange={(event) => updateVehicleField("cliente_cedula", event.target.value)}
               placeholder="9999999999"
@@ -241,9 +234,9 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="marca">Marca (opcional)</Label>
+            <Label htmlFor="asesor_marca">Marca (opcional)</Label>
             <Input
-              id="marca"
+              id="asesor_marca"
               value={vehicleForm.marca}
               onChange={(event) => updateVehicleField("marca", event.target.value)}
               placeholder="Toyota"
@@ -251,9 +244,9 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="modelo">Modelo (opcional)</Label>
+            <Label htmlFor="asesor_modelo">Modelo (opcional)</Label>
             <Input
-              id="modelo"
+              id="asesor_modelo"
               value={vehicleForm.modelo}
               onChange={(event) => updateVehicleField("modelo", event.target.value)}
               placeholder="Corolla"
@@ -274,14 +267,17 @@ export function NewWorkOrderForm() {
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="grid gap-2">
-            <Label htmlFor="broker">Broker (opcional)</Label>
+            <Label htmlFor="asesor_broker">Broker (opcional)</Label>
             <Select
               value={orderForm.broker_id}
               onValueChange={(value) =>
                 updateOrderField("broker_id", value ?? NO_CATALOG_OPTION_VALUE)
               }
             >
-              <SelectTrigger id="broker" className="w-full bg-input border-border">
+              <SelectTrigger
+                id="asesor_broker"
+                className="w-full bg-input border-border"
+              >
                 <SelectValue
                   placeholder={isLoadingCatalogs ? "Cargando brokers..." : "Seleccionar"}
                 >
@@ -302,7 +298,7 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="aseguradora">Aseguradora (opcional)</Label>
+            <Label htmlFor="asesor_aseguradora">Aseguradora (opcional)</Label>
             <Select
               value={orderForm.aseguradora_id}
               onValueChange={(value) =>
@@ -310,7 +306,7 @@ export function NewWorkOrderForm() {
               }
             >
               <SelectTrigger
-                id="aseguradora"
+                id="asesor_aseguradora"
                 className="w-full bg-input border-border"
               >
                 <SelectValue

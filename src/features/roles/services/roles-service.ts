@@ -1,4 +1,5 @@
 import type { CreateRoleInput, Role, UpdateRoleInput } from "../types"
+import { notifyUnauthorizedResponse } from "@/features/auth/unauthorized-session"
 
 const API_BASE_PATH = "/api/mecanica"
 
@@ -105,6 +106,7 @@ export async function requestRolesApi<T>(path: string, options: RolesRequestOpti
   const payload = await parseResponseBody(response)
 
   if (!response.ok) {
+    notifyUnauthorizedResponse(response.status, payload)
     throw new RolesServiceError(
       response.status,
       payload,

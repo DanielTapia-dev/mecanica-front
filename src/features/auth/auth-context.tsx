@@ -1,8 +1,22 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react"
+import { isAuthUser } from "./auth-validation"
 import { getDefaultPathForUser } from "./permissions"
-import type { AuthRole, AuthUser } from "./types"
+import { buildAuthSessionScope } from "./session-scope"
+import type { AuthSessionScope, AuthUser } from "./types"
+import {
+  AUTH_UNAUTHORIZED_EVENT,
+  clearLegacyAuthStorage,
+  resetUnauthorizedSessionNotification,
+} from "./unauthorized-session"
 
 interface LoginResult {
   success: boolean
@@ -12,6 +26,7 @@ interface LoginResult {
 
 interface AuthContextType {
   user: AuthUser | null
+  sessionScope: AuthSessionScope
   login: (email: string, password: string) => Promise<LoginResult>
   logout: () => void
   isLoading: boolean
@@ -19,63 +34,65 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function isAuthRole(value: unknown): value is AuthRole {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "codigo" in value &&
-    typeof value.codigo === "string" &&
-    "nombre" in value &&
-    typeof value.nombre === "string"
-  )
-}
-
-function isAuthUser(value: unknown): value is AuthUser {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "email" in value &&
-    "username" in value &&
-    "name" in value &&
-    "roles" in value &&
-    Array.isArray(value.roles) &&
-    value.roles.every(isAuthRole)
-  )
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const sessionScope = useMemo(() => buildAuthSessionScope(user), [user])
 
   useEffect(() => {
     let isMounted = true
 
-    queueMicrotask(() => {
-      if (!isMounted) {
-        return
-      }
+    async function loadSession() {
+      clearLegacyAuthStorage()
 
-      const storedUser = localStorage.getItem("auth_user")
-      if (storedUser) {
-        try {
-        const parsedUser = JSON.parse(storedUser) as unknown
-        if (isAuthUser(parsedUser)) {
-          setUser(parsedUser)
-        } else {
-          localStorage.removeItem("auth_user")
-          localStorage.removeItem("auth_token")
+      try {
+        const response = await fetch("/api/auth/session", {
+          cache: "no-store",
+        })
+
+        if (!isMounted) {
+          return
         }
-      } catch {
-        localStorage.removeItem("auth_user")
-          localStorage.removeItem("auth_token")
+
+        if (response.ok) {
+          const payload = (await response.json()) as { user?: unknown }
+
+          if (isAuthUser(payload.user)) {
+            resetUnauthorizedSessionNotification()
+            setUser(payload.user)
+          }
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
         }
       }
+    }
 
-      setIsLoading(false)
-    })
+    void loadSession()
 
     return () => {
       isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleUnauthorizedSession() {
+      setUser(null)
+      clearLegacyAuthStorage()
+      void fetch("/api/auth/logout", {
+        method: "POST",
+      }).finally(() => {
+        if (window.location.pathname !== "/") {
+          window.location.assign("/")
+        }
+      })
+    }
+
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorizedSession)
+
+    return () => {
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorizedSession)
     }
   }, [])
 
@@ -91,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const payload = (await response.json()) as {
         message?: string
-        token?: string
         user?: AuthUser
       }
 
@@ -102,18 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      resetUnauthorizedSessionNotification()
       setUser(payload.user)
-      localStorage.setItem("auth_user", JSON.stringify(payload.user))
-
-      if (payload.token) {
-        localStorage.setItem("auth_token", payload.token)
-      } else {
-        localStorage.removeItem("auth_token")
-      }
+      clearLegacyAuthStorage()
 
       return {
         success: true,
-        redirectTo: getDefaultPathForUser(payload.user),
+        redirectTo: getDefaultPathForUser(payload.user) ?? undefined,
       }
     } catch {
       return {
@@ -125,12 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("auth_user")
-    localStorage.removeItem("auth_token")
+    clearLegacyAuthStorage()
+    void fetch("/api/auth/logout", {
+      method: "POST",
+    })
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, sessionScope, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

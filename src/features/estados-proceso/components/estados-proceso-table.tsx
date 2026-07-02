@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -48,10 +48,6 @@ import type {
   UpdateEstadoProcesoInput,
 } from "@/features/estados-proceso/types"
 
-function getAuthToken() {
-  return localStorage.getItem("auth_token") ?? undefined
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof EstadosProcesoServiceError ? error.message : fallback
 }
@@ -82,8 +78,8 @@ function readUpdateEstadoProcesoInput(formData: FormData): UpdateEstadoProcesoIn
 }
 
 export function EstadosProcesoTable() {
-  const { user } = useAuth()
-  const empresaId = user?.empresaId ?? user?.empresa_id
+  const { sessionScope } = useAuth()
+  const empresaId = sessionScope.empresa_id
 
   const [estados, setEstados] = useState<EstadoProceso[]>([])
   const [search, setSearch] = useState("")
@@ -102,20 +98,33 @@ export function EstadosProcesoTable() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const loadEstados = async () => {
+  const loadEstados = useCallback(async () => {
     try {
-      const token = getAuthToken()
-      const data = await estadosProcesoService.listEstadosProceso({ token })
+      const data = await estadosProcesoService.listEstadosProceso()
       setEstados(data)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los estados de proceso."))
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadEstados().finally(() => setIsLoading(false))
-  }, [])
+    let isMounted = true
+
+    async function loadInitialEstados() {
+      await loadEstados()
+
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
+
+    void loadInitialEstados()
+
+    return () => {
+      isMounted = false
+    }
+  }, [loadEstados])
 
   const filteredEstados = estados.filter(
     (estado) =>
@@ -136,10 +145,8 @@ export function EstadosProcesoTable() {
     setAddError(null)
 
     try {
-      const token = getAuthToken()
       await estadosProcesoService.createEstadoProceso(
-        readCreateEstadoProcesoInput(formData, empresaId),
-        { token }
+        readCreateEstadoProcesoInput(formData, empresaId)
       )
       await loadEstados()
       setIsAddOpen(false)
@@ -159,11 +166,9 @@ export function EstadosProcesoTable() {
     setEditError(null)
 
     try {
-      const token = getAuthToken()
       await estadosProcesoService.updateEstadoProceso(
         editingEstado.id,
-        readUpdateEstadoProcesoInput(formData),
-        { token }
+        readUpdateEstadoProcesoInput(formData)
       )
       await loadEstados()
       setEditingEstado(null)
@@ -181,8 +186,7 @@ export function EstadosProcesoTable() {
     setDeleteError(null)
 
     try {
-      const token = getAuthToken()
-      await estadosProcesoService.deleteEstadoProceso(deletingEstado.id, { token })
+      await estadosProcesoService.deleteEstadoProceso(deletingEstado.id)
       await loadEstados()
       setDeletingEstado(null)
     } catch (error) {

@@ -1,5 +1,6 @@
 export type RoleCode =
   | "ADMIN"
+  | "ASESOR"
   | "RECEPCION"
   | "REPUESTOS"
   | "CLIENTE"
@@ -10,6 +11,8 @@ export type RoleCode =
   | "DEP_LAVADO_CALIDAD"
 
 export interface AuthRole {
+  id?: string
+  rol_id?: string
   codigo: RoleCode | string
   nombre: string
   tipo_rol?: string
@@ -17,6 +20,8 @@ export interface AuthRole {
 
 export interface AuthUser {
   id?: string
+  usuario_id?: string
+  user_id?: string
   empresaId?: string
   sucursalId?: string
   empresa_id?: string
@@ -27,4 +32,15 @@ export interface AuthUser {
   username: string
   name: string
   roles: AuthRole[]
+}
+
+export interface AuthSessionScope {
+  user_id?: string
+  empresa_id?: string
+  sucursal_id?: string
+  empresa_nombre?: string
+  sucursal_nombre?: string
+  roles: AuthRole[]
+  role_codes: string[]
+  role_ids: string[]
 }

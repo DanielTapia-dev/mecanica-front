@@ -1,8 +1,10 @@
 import type { Department } from "@/lib/data/mock-data"
+import { normalizeRoleCode } from "./role-normalization"
 import type { AuthUser, RoleCode } from "./types"
 
 export const roleLabels: Record<RoleCode, string> = {
   ADMIN: "Administrador",
+  ASESOR: "Asesor",
   RECEPCION: "Recepcion",
   REPUESTOS: "Repuestos",
   CLIENTE: "Cliente",
@@ -31,6 +33,7 @@ const allDepartments: Department[] = ["enderezado", "pintura", "mecanica", "lava
 
 const defaultPathByRole: Partial<Record<RoleCode, string>> = {
   ADMIN: "/empresas",
+  ASESOR: "/ordenes",
   RECEPCION: "/recepcion",
   REPUESTOS: "/ordenes",
   CLIENTE: "/ordenes",
@@ -40,6 +43,8 @@ const defaultPathByRole: Partial<Record<RoleCode, string>> = {
   DEP_MECANICA: "/departamentos/mecanica",
   DEP_LAVADO_CALIDAD: "/departamentos/lavado",
 }
+
+const knownRoleCodes = new Set<string>(Object.keys(roleLabels))
 
 export interface RoleAccessSummary {
   code: string
@@ -51,6 +56,10 @@ const roleAccessSummaries: Record<RoleCode, Omit<RoleAccessSummary, "code">> = {
   ADMIN: {
     title: "Administracion",
     description: "Usuarios, roles, catalogos, ordenes y departamentos.",
+  },
+  ASESOR: {
+    title: "Asesor",
+    description: "Seguimiento operativo de ordenes segun estados asignados.",
   },
   RECEPCION: {
     title: "Recepcion",
@@ -86,34 +95,30 @@ const roleAccessSummaries: Record<RoleCode, Omit<RoleAccessSummary, "code">> = {
   },
 }
 
-function normalizeRoleCode(roleCode: string) {
-  const normalizedRole = roleCode
-    .trim()
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-
-  if (["ADMINISTRADOR", "ADMINISTRACION"].includes(normalizedRole)) {
-    return "ADMIN"
-  }
-
-  if (["RECEPCION", "RECEPCIONISTA"].includes(normalizedRole)) {
-    return "RECEPCION"
-  }
-
-  return normalizedRole
+function isKnownRoleCode(roleCode: string): roleCode is RoleCode {
+  return knownRoleCodes.has(roleCode)
 }
 
 export function getUserRoleCodes(user: AuthUser | null | undefined) {
   return user?.roles.map((role) => normalizeRoleCode(role.codigo)) ?? []
 }
 
+export function getUserRoleIds(user: AuthUser | null | undefined) {
+  const roleIds = user?.roles
+    .map((role) => role.id ?? role.rol_id)
+    .filter((roleId): roleId is string => Boolean(roleId)) ?? []
+
+  return [...new Set(roleIds)]
+}
+
 export function getDefaultPathForUser(user: AuthUser | null | undefined) {
-  const roleCodes = getUserRoleCodes(user) as RoleCode[]
+  const roleCodes = getUserRoleCodes(user)
 
   for (const roleCode of roleCodes) {
+    if (!isKnownRoleCode(roleCode)) {
+      continue
+    }
+
     const path = defaultPathByRole[roleCode]
 
     if (path) {
@@ -121,7 +126,7 @@ export function getDefaultPathForUser(user: AuthUser | null | undefined) {
     }
   }
 
-  return "/ordenes"
+  return null
 }
 
 export function hasAnyRole(
@@ -217,8 +222,13 @@ export function canCreateWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["RECEPCION"])
 }
 
+export function canAccessAsesor(user: AuthUser | null | undefined) {
+  return hasExplicitRole(user, ["ASESOR"])
+}
+
 export function canAccessWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, [
+    "ASESOR",
     "RECEPCION",
     "REPUESTOS",
     "CLIENTE",
@@ -273,6 +283,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/ordenes" || path.startsWith("/ordenes/")) {
     return canAccessWorkOrders(user)
+  }
+
+  if (path === "/departamentos/asesor" || path.startsWith("/departamentos/asesor/")) {
+    return canAccessAsesor(user)
   }
 
   const departmentPath = path.match(/^\/departamentos\/([^/]+)/)
@@ -336,6 +350,13 @@ export function getDashboardCopy(user: AuthUser | null | undefined) {
     return {
       title: "Panel de recepcion",
       description: "Acceso enfocado en clientes, vehiculos e ingreso de ordenes.",
+    }
+  }
+
+  if (hasAnyRole(user, ["ASESOR"])) {
+    return {
+      title: "Panel de asesor",
+      description: "Acceso enfocado en ordenes habilitadas por estado.",
     }
   }
 

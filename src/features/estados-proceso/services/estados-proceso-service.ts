@@ -1,10 +1,16 @@
 import type { CreateEstadoProcesoInput, EstadoProceso, UpdateEstadoProcesoInput } from "../types"
+import { notifyUnauthorizedResponse } from "@/features/auth/unauthorized-session"
 
 const API_BASE_PATH = "/api/mecanica"
 
 export const estadosProcesoApiPaths = {
   estadosProceso: `${API_BASE_PATH}/estados-proceso`,
+  estadosProcesoActive: `${API_BASE_PATH}/estados-proceso/activos`,
+  estadosProcesoByEmpresa: (empresaId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/estados-proceso`,
   estadoProceso: (estadoProcesoId: string) => `${API_BASE_PATH}/estado-proceso/${estadoProcesoId}`,
+  buscarEstadoProceso: (codigo: string) =>
+    `${API_BASE_PATH}/estados-proceso/buscar?codigo=${encodeURIComponent(codigo)}`,
   createEstadoProceso: `${API_BASE_PATH}/estado-proceso`,
 }
 
@@ -52,7 +58,11 @@ function getListData<T>(payload: unknown, keys: string[]) {
     return []
   }
 
-  const candidates = keys.map((key) => payload[key])
+  const dataRecord = isRecord(payload.data) ? payload.data : undefined
+  const candidates = [
+    ...keys.map((key) => payload[key]),
+    ...keys.map((key) => dataRecord?.[key]),
+  ]
   const list = candidates.find(Array.isArray)
 
   return Array.isArray(list) ? (list as T[]) : []
@@ -108,6 +118,7 @@ export async function requestEstadosProcesoApi<T>(
   const payload = await parseResponseBody(response)
 
   if (!response.ok) {
+    notifyUnauthorizedResponse(response.status, payload)
     throw new EstadosProcesoServiceError(
       response.status,
       payload,
@@ -127,9 +138,37 @@ export const estadosProcesoService = {
     return getListData<EstadoProceso>(payload, ["estados_proceso", "estadosProceso", "data"])
   },
 
+  async listEstadosProcesoActivos(
+    options?: EstadosProcesoRequestOptions
+  ): Promise<EstadoProceso[]> {
+    const payload = await requestEstadosProcesoApi<unknown>(
+      estadosProcesoApiPaths.estadosProcesoActive,
+      options
+    )
+    return getListData<EstadoProceso>(payload, ["estados_proceso", "estadosProceso", "data"])
+  },
+
+  async listEstadosProcesoByEmpresa(
+    empresaId: string,
+    options?: EstadosProcesoRequestOptions
+  ): Promise<EstadoProceso[]> {
+    const payload = await requestEstadosProcesoApi<unknown>(
+      estadosProcesoApiPaths.estadosProcesoByEmpresa(empresaId),
+      options
+    )
+    return getListData<EstadoProceso>(payload, ["estados_proceso", "estadosProceso", "data"])
+  },
+
   getEstadoProceso(estadoProcesoId: string, options?: EstadosProcesoRequestOptions) {
     return requestEstadosProcesoApi<EstadoProceso>(
       estadosProcesoApiPaths.estadoProceso(estadoProcesoId),
+      options
+    )
+  },
+
+  buscarEstadoProcesoPorCodigo(codigo: string, options?: EstadosProcesoRequestOptions) {
+    return requestEstadosProcesoApi<EstadoProceso>(
+      estadosProcesoApiPaths.buscarEstadoProceso(codigo),
       options
     )
   },

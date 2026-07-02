@@ -201,7 +201,10 @@ Payload esperado para `POST /api/mecanica/vehiculo`:
 
 ```json
 {
-  "cliente_id": "string",
+  "empresa_id": "string",
+  "sucursal_id": "string",
+  "cliente_nombre": "string opcional",
+  "cliente_cedula": "string opcional",
   "placa": "string",
   "vin": "string opcional",
   "marca": "string",
@@ -211,6 +214,9 @@ Payload esperado para `POST /api/mecanica/vehiculo`:
   "kilometraje": 0
 }
 ```
+
+Campos obligatorios: `empresa_id`, `sucursal_id`, `placa`, `marca`, `modelo`.
+Campos opcionales: `cliente_nombre`, `cliente_cedula`, `vin`, `anio`, `color`, `kilometraje`.
 
 Respuesta minima esperada:
 
@@ -245,23 +251,21 @@ GET    /api/mecanica/vehiculo/{vehiculo_id}/ordenes-trabajo
 
 Payload esperado para `POST /api/mecanica/orden-trabajo`:
 
+Contrato actual confirmado por backend: el request recibe el vehiculo ya creado y los datos de contexto de sesion.
+
 ```json
 {
-  "cliente_id": "string",
+  "empresa_id": "string",
+  "sucursal_id": "string",
   "vehiculo_id": "string",
-  "estado_general": "Pendiente",
-  "etapa_actual": "Ingreso | Repuestos | Seleccion de departamento",
-  "requiere_repuestos": true,
-  "repuestos_completos": false,
-  "departamento_actual_id": null,
-  "actividad_actual": "string opcional",
-  "observacion_cliente": "string opcional",
-  "observacion_interna": "string opcional",
-  "motivo_ingreso": "string",
-  "fecha_creacion": "ISO opcional si backend la genera",
-  "creado_por_usuario_id": "string opcional"
+  "creado_por_usuario_id": "string",
+  "motivo_ingreso": "Ingreso de vehiculo"
 }
 ```
+
+Campos obligatorios: `empresa_id`, `sucursal_id`, `vehiculo_id`, `creado_por_usuario_id`, `motivo_ingreso`.
+
+El frontend debe buscar primero si existe un vehiculo con la misma placa. Si existe, usa ese `id` como `vehiculo_id`. Si no existe, crea el vehiculo con `POST /api/mecanica/vehiculo` y usa el `id` retornado. `motivo_ingreso` no se captura en pantalla; se envia automatico porque la base de datos lo exige como no nulo.
 
 Respuesta minima esperada:
 
@@ -479,24 +483,21 @@ etapa_actual = Ingreso
 - Crear feature `work-orders` o `reception` segun convenga con la estructura actual.
 - Crear formulario de ingreso empezando por datos del vehiculo.
 - Capturar datos del vehiculo:
+  - nombre del cliente
+  - cedula del cliente
   - placa
   - vin
   - marca
   - modelo
-  - anio
-  - color
-  - kilometraje
-- Buscar cliente al final del formulario.
-- Permitir asignar cliente existente.
-- Si cliente no existe, abrir modal de alta rapida de cliente.
-- Capturar motivo de ingreso.
-- Capturar observacion interna inicial.
-- Capturar observacion visible inicial para cliente, opcional.
-- Capturar si requiere repuestos.
-- Crear vehiculo en backend con `POST /api/mecanica/vehiculo`.
-- Crear orden en backend con `POST /api/mecanica/orden-trabajo`.
+  - anio opcional
+  - color opcional
+  - kilometraje opcional
+- Buscar vehiculo existente por placa.
+- Si la placa ya existe, reutilizar el `id` del vehiculo existente.
+- Si la placa no existe, crear vehiculo en backend con `POST /api/mecanica/vehiculo`.
+- Crear orden en backend con `POST /api/mecanica/orden-trabajo`, enviando `empresa_id`, `sucursal_id`, `vehiculo_id`, `creado_por_usuario_id` y `motivo_ingreso` automatico.
 - Redirigir a `/ordenes/[ordenId]` despues de guardar.
-- Mostrar error claro si falta vehiculo, cliente o motivo.
+- Mostrar error claro si falta nombre del cliente, cedula del cliente, placa, marca, modelo o datos de sesion.
 
 ### Servicios backend
 
@@ -559,7 +560,10 @@ Enviar:
 
 ```json
 {
-  "cliente_id": "string",
+  "empresa_id": "string",
+  "sucursal_id": "string",
+  "cliente_nombre": "string opcional",
+  "cliente_cedula": "string opcional",
   "placa": "string",
   "vin": "string opcional",
   "marca": "string",
@@ -569,6 +573,9 @@ Enviar:
   "kilometraje": 0
 }
 ```
+
+Campos obligatorios: `empresa_id`, `sucursal_id`, `placa`, `marca`, `modelo`.
+Campos opcionales: `cliente_nombre`, `cliente_cedula`, `vin`, `anio`, `color`, `kilometraje`.
 
 Debe devolver al menos:
 
@@ -586,39 +593,21 @@ Debe devolver al menos:
 POST /api/mecanica/orden-trabajo
 ```
 
-Enviar si requiere repuestos:
+Payload minimo actual:
 
 ```json
 {
-  "cliente_id": "string",
+  "empresa_id": "string",
+  "sucursal_id": "string",
   "vehiculo_id": "string",
-  "estado_general": "Pendiente",
-  "etapa_actual": "Repuestos",
-  "requiere_repuestos": true,
-  "repuestos_completos": false,
-  "departamento_actual_id": null,
-  "motivo_ingreso": "string",
-  "observacion_interna": "string opcional",
-  "observacion_cliente": "string opcional"
+  "creado_por_usuario_id": "string",
+  "motivo_ingreso": "Ingreso de vehiculo"
 }
 ```
 
-Enviar si no requiere repuestos:
+Campos obligatorios: `empresa_id`, `sucursal_id`, `vehiculo_id`, `creado_por_usuario_id`, `motivo_ingreso`.
 
-```json
-{
-  "cliente_id": "string",
-  "vehiculo_id": "string",
-  "estado_general": "Pendiente",
-  "etapa_actual": "Seleccion de departamento",
-  "requiere_repuestos": false,
-  "repuestos_completos": false,
-  "departamento_actual_id": null,
-  "motivo_ingreso": "string",
-  "observacion_interna": "string opcional",
-  "observacion_cliente": "string opcional"
-}
-```
+El `vehiculo_id` debe salir del vehiculo existente por placa o del vehiculo creado previamente. `motivo_ingreso` se envia automatico.
 
 Debe devolver al menos:
 
@@ -840,21 +829,27 @@ Debe devolver:
 }
 ```
 
-Si se necesita corregir etapa despues de crear orden:
+Si se necesita mover la orden a otro estado de proceso:
 
 ```text
-PUT /api/mecanica/orden-trabajo/{id}
+POST /api/mecanica/orden-estado-historial
 ```
 
 Enviar:
 
 ```json
 {
-  "etapa_actual": "Repuestos | Seleccion de departamento",
-  "requiere_repuestos": true,
-  "repuestos_completos": false
+  "empresa_id": "orden.empresa_id",
+  "sucursal_id": "orden.sucursal_id",
+  "orden_id": "orden.id",
+  "estado_id": "estadoDestino.id",
+  "comentario_interno": null,
+  "comentario_cliente": null,
+  "registrado_por_usuario_id": "usuarioActual.id"
 }
 ```
+
+Despues del `POST` exitoso, refrescar con `GET /api/mecanica/orden-trabajo/{id}`. No enviar `estado_actual_id` ni `sub_estado_actual` en `PUT /api/mecanica/orden-trabajo/{id}`.
 
 ### Criterios de terminado
 
@@ -1510,7 +1505,7 @@ GET /api/mecanica/cliente/{cliente_id}/ordenes-trabajo
 - [ ] Frontend usa `POST /api/mecanica/cliente`, no `/clientes`.
 - [ ] Frontend usa `POST /api/mecanica/vehiculo`, no `/vehiculos`.
 - [ ] Frontend usa `POST /api/mecanica/orden-trabajo`, no `/ordenes-trabajo`.
-- [ ] Frontend usa `PUT /api/mecanica/orden-trabajo/{id}` para cambios de etapa/estado.
+- [ ] Frontend usa `POST /api/mecanica/orden-estado-historial` para cambios de estado y luego refresca con `GET /api/mecanica/orden-trabajo/{id}`.
 - [ ] Frontend usa `POST/PUT /api/mecanica/orden-departamento-historial` para asignar, mover y finalizar departamentos.
 - [ ] Frontend usa `POST/PUT /api/mecanica/solicitudes-repuestos` para solicitudes generales.
 

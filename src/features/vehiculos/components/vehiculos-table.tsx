@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -73,10 +73,14 @@ function readVehiculoInput(
   }
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof VehiculosApiError ? error.message : fallback
+}
+
 export function VehiculosTable() {
-  const { user } = useAuth()
-  const empresaId = user?.empresaId ?? user?.empresa_id
-  const sucursalId = user?.sucursalId ?? user?.sucursal_id
+  const { sessionScope } = useAuth()
+  const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
 
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -96,9 +100,6 @@ export function VehiculosTable() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const getErrorMessage = (error: unknown, fallback: string) =>
-    error instanceof VehiculosApiError ? error.message : fallback
-
   const getClienteNombre = (vehiculo: Vehiculo) => {
     if (vehiculo.cliente) {
       return `${vehiculo.cliente.nombre} ${vehiculo.cliente.apellido}`
@@ -108,7 +109,7 @@ export function VehiculosTable() {
     return cliente ? `${cliente.nombre} ${cliente.apellido}` : vehiculo.cliente_id
   }
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [vehiculosData, clientesData] = await Promise.all([fetchVehiculos(), fetchClientes()])
       setVehiculos(vehiculosData.vehiculos)
@@ -117,11 +118,25 @@ export function VehiculosTable() {
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los vehículos."))
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadData().finally(() => setIsLoading(false))
-  }, [])
+    let isMounted = true
+
+    async function loadInitialData() {
+      await loadData()
+
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
+
+    void loadInitialData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [loadData])
 
   const filteredVehiculos = vehiculos.filter(
     (vehiculo) =>

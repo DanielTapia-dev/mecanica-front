@@ -1,7 +1,9 @@
+import type { EstadoProcesoCode } from "./constants"
+
 export interface EstadoProceso {
   id: string
   empresa_id: string
-  codigo: string
+  codigo: EstadoProcesoCode | string
   nombre: string
   mensaje_cliente_default: string
   es_bahia: boolean

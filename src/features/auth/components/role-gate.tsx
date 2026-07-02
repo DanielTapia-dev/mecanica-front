@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
+import { AccessDenied } from "@/features/auth/components/access-denied"
 import {
   getDefaultPathForUser,
   hasAnyRole,
@@ -23,6 +24,7 @@ export function RoleGate({
   children,
 }: RoleGateProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { user } = useAuth()
 
   const hasAccess = allowAdmin
@@ -31,12 +33,12 @@ export function RoleGate({
   const redirectTo = getDefaultPathForUser(user)
 
   useEffect(() => {
-    if (!user || hasAccess) {
+    if (!user || hasAccess || !redirectTo || redirectTo === pathname) {
       return
     }
 
     router.replace(redirectTo)
-  }, [hasAccess, redirectTo, router, user])
+  }, [hasAccess, pathname, redirectTo, router, user])
 
   if (!user) {
     return null
@@ -44,6 +46,12 @@ export function RoleGate({
 
   if (hasAccess) {
     return <>{children}</>
+  }
+
+  if (!redirectTo || redirectTo === pathname) {
+    return (
+      <AccessDenied description="Tu usuario inicio sesion correctamente, pero el rol asignado no tiene una ruta inicial valida para esta pantalla." />
+    )
   }
 
   return (

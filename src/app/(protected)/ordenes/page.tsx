@@ -5,6 +5,7 @@ export default function WorkOrdersPage() {
   return (
     <RoleGate
       allowedRoles={[
+        "ASESOR",
         "RECEPCION",
         "REPUESTOS",
         "CLIENTE",

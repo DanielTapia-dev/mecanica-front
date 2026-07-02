@@ -1,4 +1,5 @@
 import type { CreateUsuarioInput, Role, UpdateUsuarioInput, Usuario } from "../types"
+import { notifyUnauthorizedResponse } from "@/features/auth/unauthorized-session"
 
 const API_BASE_PATH = "/api/mecanica"
 
@@ -106,6 +107,7 @@ export async function requestUsersApi<T>(path: string, options: UsersRequestOpti
   const payload = await parseResponseBody(response)
 
   if (!response.ok) {
+    notifyUnauthorizedResponse(response.status, payload)
     throw new UsersServiceError(
       response.status,
       payload,

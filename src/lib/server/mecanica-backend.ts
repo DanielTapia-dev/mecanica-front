@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server"
+import {
+  AUTH_TOKEN_COOKIE_NAME,
+  AUTH_USER_COOKIE_NAME,
+  readCookieHeader,
+} from "@/features/auth/session-cookies"
 
 const DEFAULT_BACKEND_URL = "http://localhost:8011"
 
@@ -26,7 +31,13 @@ export async function proxyToMecanicaBackend(
   backendPath: string,
   method: "GET" | "POST" | "PUT" | "DELETE"
 ) {
-  const authorization = request.headers.get("authorization")
+  const sessionToken = readCookieHeader(
+    request.headers.get("cookie"),
+    AUTH_TOKEN_COOKIE_NAME
+  )
+  const authorization =
+    request.headers.get("authorization") ??
+    (sessionToken ? `Bearer ${sessionToken}` : undefined)
   const hasBody = method === "POST" || method === "PUT"
 
   let backendResponse: Response
@@ -50,5 +61,12 @@ export async function proxyToMecanicaBackend(
 
   const payload = await parseResponseBody(backendResponse)
 
-  return NextResponse.json(payload, { status: backendResponse.status })
+  const response = NextResponse.json(payload, { status: backendResponse.status })
+
+  if (backendResponse.status === 401 || backendResponse.status === 403) {
+    response.cookies.delete(AUTH_TOKEN_COOKIE_NAME)
+    response.cookies.delete(AUTH_USER_COOKIE_NAME)
+  }
+
+  return response
 }

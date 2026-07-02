@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import {
   Table,
   TableBody,
@@ -53,10 +53,6 @@ const TIPO_ROL_LABELS: Record<string, string> = {
   CLIENTE: "Cliente",
 }
 
-function getAuthToken() {
-  return localStorage.getItem("auth_token") ?? undefined
-}
-
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof UsersServiceError ? error.message : fallback
 }
@@ -92,9 +88,9 @@ function readUpdateUsuarioInput(formData: FormData): UpdateUsuarioInput {
 }
 
 export function UsersTable() {
-  const { user } = useAuth()
-  const empresaId = user?.empresaId ?? user?.empresa_id
-  const sucursalId = user?.sucursalId ?? user?.sucursal_id
+  const { sessionScope } = useAuth()
+  const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [roles, setRoles] = useState<Role[]>([])
@@ -114,12 +110,11 @@ export function UsersTable() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const loadUsuarios = async () => {
+  const loadUsuarios = useCallback(async () => {
     try {
-      const token = getAuthToken()
       const [usuariosList, rolesList] = await Promise.all([
-        usersService.listUsuarios({ token }),
-        rolesService.listRoles({ token }),
+        usersService.listUsuarios(),
+        rolesService.listRoles(),
       ])
 
       setUsuarios(usuariosList)
@@ -128,13 +123,27 @@ export function UsersTable() {
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los usuarios."))
     }
-  }
+  }, [])
 
   const getRoleById = (rolId: string) => roles.find((role) => role.id === rolId)
 
   useEffect(() => {
-    loadUsuarios().finally(() => setIsLoading(false))
-  }, [])
+    let isMounted = true
+
+    async function loadInitialUsuarios() {
+      await loadUsuarios()
+
+      if (isMounted) {
+        setIsLoading(false)
+      }
+    }
+
+    void loadInitialUsuarios()
+
+    return () => {
+      isMounted = false
+    }
+  }, [loadUsuarios])
 
   const filteredUsuarios = usuarios.filter(
     (usuario) =>
@@ -156,10 +165,8 @@ export function UsersTable() {
     setAddError(null)
 
     try {
-      const token = getAuthToken()
       await usersService.createUsuario(
-        readCreateUsuarioInput(formData, empresaId, sucursalId),
-        { token }
+        readCreateUsuarioInput(formData, empresaId, sucursalId)
       )
       await loadUsuarios()
       setIsAddOpen(false)
@@ -179,10 +186,7 @@ export function UsersTable() {
     setEditError(null)
 
     try {
-      const token = getAuthToken()
-      await usersService.updateUsuario(editingUsuario.id, readUpdateUsuarioInput(formData), {
-        token,
-      })
+      await usersService.updateUsuario(editingUsuario.id, readUpdateUsuarioInput(formData))
       await loadUsuarios()
       setEditingUsuario(null)
     } catch (error) {
@@ -199,8 +203,7 @@ export function UsersTable() {
     setDeleteError(null)
 
     try {
-      const token = getAuthToken()
-      await usersService.deleteUsuario(deletingUsuario.id, { token })
+      await usersService.deleteUsuario(deletingUsuario.id)
       await loadUsuarios()
       setDeletingUsuario(null)
     } catch (error) {

@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server"
+import {
+  AUTH_TOKEN_COOKIE_NAME,
+  AUTH_USER_COOKIE_NAME,
+  readCookieHeader,
+} from "@/features/auth/session-cookies"
 
 const DEFAULT_BACKEND_URL = "http://localhost:8011"
 const BACKEND_API_PREFIX = "/api/mecanica"
@@ -22,10 +27,19 @@ function getBackendUrl(path: string[], search: string) {
 
 function getForwardHeaders(request: Request) {
   const headers = new Headers(request.headers)
+  const sessionToken = readCookieHeader(
+    request.headers.get("cookie"),
+    AUTH_TOKEN_COOKIE_NAME
+  )
+
+  if (sessionToken && !headers.has("authorization")) {
+    headers.set("authorization", `Bearer ${sessionToken}`)
+  }
 
   headers.delete("host")
   headers.delete("connection")
   headers.delete("content-length")
+  headers.delete("cookie")
 
   return headers
 }
@@ -56,11 +70,18 @@ async function proxyMecanicaRequest(request: Request, context: ProxyRouteContext
   responseHeaders.delete("content-encoding")
   responseHeaders.delete("transfer-encoding")
 
-  return new Response(backendResponse.body, {
+  const response = new NextResponse(backendResponse.body, {
     status: backendResponse.status,
     statusText: backendResponse.statusText,
     headers: responseHeaders,
   })
+
+  if (backendResponse.status === 401 || backendResponse.status === 403) {
+    response.cookies.delete(AUTH_TOKEN_COOKIE_NAME)
+    response.cookies.delete(AUTH_USER_COOKIE_NAME)
+  }
+
+  return response
 }
 
 export function GET(request: Request, context: ProxyRouteContext) {

@@ -103,21 +103,23 @@ export function getDepartmentLabel(codeOrSlug?: string | null) {
   )
 }
 
-export function getCustomerDisplayName(order: Pick<WorkOrder, "cliente">) {
+export function getCustomerDisplayName(
+  order: Pick<WorkOrder, "cliente" | "vehiculo" | "cliente_id">
+) {
   const customer = order.cliente
 
   if (!customer) {
-    return "Cliente sin cargar"
+    return order.vehiculo?.cliente_nombre ?? order.vehiculo?.cliente_cedula ?? "Cliente sin cargar"
   }
 
   return [customer.nombre, customer.apellido].filter(Boolean).join(" ")
 }
 
-export function getVehicleDisplayName(order: Pick<WorkOrder, "vehiculo">) {
+export function getVehicleDisplayName(order: Pick<WorkOrder, "vehiculo" | "vehiculo_id">) {
   const vehicle = order.vehiculo
 
   if (!vehicle) {
-    return "Vehiculo sin cargar"
+    return `Vehiculo ${order.vehiculo_id}`
   }
 
   return [vehicle.placa, vehicle.marca, vehicle.modelo].filter(Boolean).join(" ")
@@ -187,7 +189,7 @@ export function getWorkOrderPrimaryAction(order: WorkOrder): WorkOrderPrimaryAct
     return {
       id: "view-finalized",
       label: "Ver orden finalizada",
-      allowedRoles: ["ADMIN", "RECEPCION", "CLIENTE"],
+      allowedRoles: ["ADMIN", "ASESOR", "RECEPCION", "CLIENTE"],
       disabled: false,
     }
   }
@@ -196,7 +198,7 @@ export function getWorkOrderPrimaryAction(order: WorkOrder): WorkOrderPrimaryAct
     return {
       id: "manage-spare-parts",
       label: "Gestionar repuestos",
-      allowedRoles: ["ADMIN", "REPUESTOS"],
+      allowedRoles: ["ADMIN", "ASESOR", "REPUESTOS"],
       disabled: false,
     }
   }
@@ -207,7 +209,7 @@ export function getWorkOrderPrimaryAction(order: WorkOrder): WorkOrderPrimaryAct
     return {
       id: "select-department",
       label: "Enviar a departamento",
-      allowedRoles: ["ADMIN", "RECEPCION"],
+      allowedRoles: ["ADMIN", "ASESOR", "RECEPCION"],
       disabled: Boolean(reason),
       reason,
     }
@@ -219,6 +221,7 @@ export function getWorkOrderPrimaryAction(order: WorkOrder): WorkOrderPrimaryAct
       label: "Registrar avance",
       allowedRoles: [
         "ADMIN",
+        "ASESOR",
         "DEP_ENDEREZADA",
         "DEP_REPARACION_PINTURA",
         "DEP_ENSAMBLAJE",
@@ -233,7 +236,7 @@ export function getWorkOrderPrimaryAction(order: WorkOrder): WorkOrderPrimaryAct
     return {
       id: "manage-spare-parts",
       label: "Crear solicitud de repuestos",
-      allowedRoles: ["ADMIN", "REPUESTOS"],
+      allowedRoles: ["ADMIN", "ASESOR", "REPUESTOS"],
       disabled: false,
     }
   }
@@ -241,7 +244,7 @@ export function getWorkOrderPrimaryAction(order: WorkOrder): WorkOrderPrimaryAct
   return {
     id: "select-department",
     label: "Enviar a departamento",
-    allowedRoles: ["ADMIN", "RECEPCION"],
+    allowedRoles: ["ADMIN", "ASESOR", "RECEPCION"],
     disabled: false,
   }
 }
@@ -251,8 +254,9 @@ export function getFinalizeAction(): WorkOrderPrimaryAction {
     id: "finalize-work-order",
     label: "Finalizar/despachar vehiculo",
     allowedRoles: [
-      "ADMIN",
-      "DEP_ENDEREZADA",
+    "ADMIN",
+    "ASESOR",
+    "DEP_ENDEREZADA",
       "DEP_REPARACION_PINTURA",
       "DEP_ENSAMBLAJE",
       "DEP_MECANICA",

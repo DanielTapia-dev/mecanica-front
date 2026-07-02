@@ -13,6 +13,7 @@ export default async function WorkOrderDetailPage({ params }: WorkOrderDetailPag
   return (
     <RoleGate
       allowedRoles={[
+        "ASESOR",
         "RECEPCION",
         "REPUESTOS",
         "CLIENTE",
