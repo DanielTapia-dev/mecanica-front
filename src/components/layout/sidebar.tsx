@@ -10,7 +10,6 @@ import {
   Building2,
   MapPin,
   ShieldCheck,
-  Contact,
   Car,
   Wrench,
   Paintbrush,
@@ -22,8 +21,7 @@ import {
   X,
   LogOut,
   Bell,
-  Moon,
-  Sun,
+  Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -42,7 +40,7 @@ import {
   getDefaultPathForUser,
   getUserRoleLabel,
 } from "@/features/auth/permissions"
-import { useTheme } from "@/lib/theme/theme-context"
+import { ThemeToggle } from "@/components/layout/theme-toggle"
 
 const navItems = [
   { href: "/empresas", label: "Empresas", icon: Building2 },
@@ -50,7 +48,6 @@ const navItems = [
   { href: "/estados-proceso", label: "Estados de Proceso", icon: ListOrdered },
   { href: "/roles", label: "Roles", icon: ShieldCheck },
   { href: "/usuarios", label: "Usuarios", icon: Users },
-  { href: "/clientes", label: "Clientes", icon: Contact },
   { href: "/vehiculos", label: "Vehículos", icon: Car },
   { href: "/ordenes", label: "Ordenes", icon: ClipboardList },
   { href: "/recepcion", label: "Recepcion", icon: LayoutDashboard },
@@ -58,6 +55,7 @@ const navItems = [
   { href: "/departamentos/pintura", label: "Pintura", icon: Paintbrush },
   { href: "/departamentos/mecanica", label: "Mecánica", icon: Wrench },
   { href: "/departamentos/lavado", label: "Lavado", icon: Droplets },
+  { href: "/consulta-cliente", label: "Consulta Estado Vehículo", icon: Search },
 ]
 
 export function Sidebar() {
@@ -189,31 +187,12 @@ export function Sidebar() {
 }
 
 export function Header() {
-  const { theme, toggleTheme } = useTheme()
-  const isLight = theme === "light"
-
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:pl-6">
       <div className="lg:hidden w-10" />
       <div className="flex-1" />
       <div className="flex items-center gap-4">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isLight}
-          aria-label={isLight ? "Cambiar a tema oscuro" : "Cambiar a tema claro"}
-          onClick={toggleTheme}
-          className="inline-flex h-8 w-16 items-center rounded-full border border-border bg-muted p-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <span
-            className={cn(
-              "flex size-6 items-center justify-center rounded-full bg-background text-foreground shadow-sm transition-transform",
-              isLight ? "translate-x-8" : "translate-x-0"
-            )}
-          >
-            {isLight ? <Sun className="size-4" /> : <Moon className="size-4" />}
-          </span>
-        </button>
+        <ThemeToggle />
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <Badge className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-primary text-primary-foreground">

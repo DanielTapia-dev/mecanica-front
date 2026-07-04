@@ -210,10 +210,6 @@ export function canAccessSucursales(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
-export function canAccessClientes(user: AuthUser | null | undefined) {
-  return hasAnyRole(user, ["ADMIN"])
-}
-
 export function canAccessVehiculos(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
@@ -269,12 +265,12 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
     return canAccessSucursales(user)
   }
 
-  if (path === "/clientes") {
-    return canAccessClientes(user)
-  }
-
   if (path === "/vehiculos") {
     return canAccessVehiculos(user)
+  }
+
+  if (path === "/consulta-cliente") {
+    return Boolean(user)
   }
 
   if (path === "/ordenes/nueva") {
