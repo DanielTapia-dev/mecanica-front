@@ -144,23 +144,6 @@ export function ConsultaClienteForm() {
             </CardContent>
           </Card>
 
-          {mostrarBotonEncuesta ? (
-            <Button
-              onClick={() => setIsEncuestaOpen(true)}
-              variant="outline"
-              className="w-full gap-2"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              Realizar encuesta de satisfacción
-            </Button>
-          ) : null}
-
-          {encuestaCompletada ? (
-            <p className="text-center text-sm text-muted-foreground">
-              ¡Gracias por completar la encuesta de satisfacción!
-            </p>
-          ) : null}
-
           {resultados.map((registro, index) => (
             <Card key={`${registro.orden_id}-${registro.tipo_registro}-${index}`}>
               <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -182,6 +165,23 @@ export function ConsultaClienteForm() {
               ) : null}
             </Card>
           ))}
+
+          {mostrarBotonEncuesta ? (
+            <Button
+              onClick={() => setIsEncuestaOpen(true)}
+              variant="outline"
+              className="w-full gap-2"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              Realizar encuesta de satisfacción
+            </Button>
+          ) : null}
+
+          {encuestaCompletada ? (
+            <p className="text-center text-sm text-muted-foreground">
+              ¡Gracias por completar la encuesta de satisfacción!
+            </p>
+          ) : null}
         </div>
       ) : null}
 
