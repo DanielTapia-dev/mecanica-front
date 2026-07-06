@@ -22,6 +22,7 @@ import {
   LogOut,
   Bell,
   Search,
+  ClipboardCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -46,6 +47,7 @@ const navItems = [
   { href: "/empresas", label: "Empresas", icon: Building2 },
   { href: "/sucursales", label: "Sucursales", icon: MapPin },
   { href: "/estados-proceso", label: "Estados de Proceso", icon: ListOrdered },
+  { href: "/encuestas", label: "Encuestas de Satisfacción", icon: ClipboardCheck },
   { href: "/roles", label: "Roles", icon: ShieldCheck },
   { href: "/usuarios", label: "Usuarios", icon: Users },
   { href: "/vehiculos", label: "Vehículos", icon: Car },

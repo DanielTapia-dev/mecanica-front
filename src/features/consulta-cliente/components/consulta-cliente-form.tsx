@@ -1,12 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { Loader2, Search, Wrench } from "lucide-react"
+import { ClipboardCheck, Loader2, Search, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { EncuestaSatisfaccionForm } from "@/features/encuestas/components/encuesta-satisfaccion-form"
 import {
   ConsultaClienteApiError,
   fetchSeguimientoPorPlaca,
@@ -23,8 +31,14 @@ export function ConsultaClienteForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultados, setResultados] = useState<SeguimientoOrden[] | null>(null)
+  const [isEncuestaOpen, setIsEncuestaOpen] = useState(false)
+  const [encuestaCompletada, setEncuestaCompletada] = useState(false)
 
   const registroInfo = resultados && resultados.length > 0 ? resultados[0] : null
+  const estadoActual =
+    resultados?.find((registro) => registro.tipo_registro === "ESTADO_ACTUAL") ?? registroInfo
+  const mostrarBotonEncuesta =
+    Boolean(estadoActual?.es_final) && !estadoActual?.encuesta_realizada && !encuestaCompletada
 
   async function handleConsultar() {
     const placaBuscada = placa.trim()
@@ -38,6 +52,7 @@ export function ConsultaClienteForm() {
     setLoading(true)
     setError(null)
     setResultados(null)
+    setEncuestaCompletada(false)
 
     try {
       const data = await fetchSeguimientoPorPlaca(placaBuscada)
@@ -129,6 +144,23 @@ export function ConsultaClienteForm() {
             </CardContent>
           </Card>
 
+          {mostrarBotonEncuesta ? (
+            <Button
+              onClick={() => setIsEncuestaOpen(true)}
+              variant="outline"
+              className="w-full gap-2"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              Realizar encuesta de satisfacción
+            </Button>
+          ) : null}
+
+          {encuestaCompletada ? (
+            <p className="text-center text-sm text-muted-foreground">
+              ¡Gracias por completar la encuesta de satisfacción!
+            </p>
+          ) : null}
+
           {resultados.map((registro, index) => (
             <Card key={`${registro.orden_id}-${registro.tipo_registro}-${index}`}>
               <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -152,6 +184,26 @@ export function ConsultaClienteForm() {
           ))}
         </div>
       ) : null}
+
+      <Dialog open={isEncuestaOpen} onOpenChange={setIsEncuestaOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Encuesta de satisfacción</DialogTitle>
+            <DialogDescription>
+              Tu opinión nos ayuda a mejorar el servicio del taller.
+            </DialogDescription>
+          </DialogHeader>
+          {estadoActual ? (
+            <EncuestaSatisfaccionForm
+              ordenId={estadoActual.orden_id}
+              onCompletado={() => {
+                setEncuestaCompletada(true)
+                setIsEncuestaOpen(false)
+              }}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

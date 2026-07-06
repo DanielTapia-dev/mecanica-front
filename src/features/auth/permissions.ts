@@ -218,6 +218,10 @@ export function canAccessConsultaCliente(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["ADMIN"])
 }
 
+export function canAccessEncuestas(user: AuthUser | null | undefined) {
+  return hasAnyRole(user, ["ADMIN"])
+}
+
 export function canCreateWorkOrders(user: AuthUser | null | undefined) {
   return hasAnyRole(user, ["RECEPCION"])
 }
@@ -275,6 +279,10 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
 
   if (path === "/consulta-cliente") {
     return canAccessConsultaCliente(user)
+  }
+
+  if (path === "/encuestas") {
+    return canAccessEncuestas(user)
   }
 
   if (path === "/ordenes/nueva") {
