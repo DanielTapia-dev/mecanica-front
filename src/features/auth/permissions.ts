@@ -5,6 +5,7 @@ import type { AuthUser, RoleCode } from "./types"
 export const roleLabels: Record<RoleCode, string> = {
   ADMIN: "Administrador",
   ASESOR: "Asesor",
+  JEFE_TALLER: "Jefe de taller",
   RECEPCION: "Recepcion",
   REPUESTOS: "Repuestos",
   CLIENTE: "Cliente",
@@ -34,14 +35,15 @@ const allDepartments: Department[] = ["enderezado", "pintura", "mecanica", "lava
 const defaultPathByRole: Partial<Record<RoleCode, string>> = {
   ADMIN: "/empresas",
   ASESOR: "/ordenes",
+  JEFE_TALLER: "/ordenes",
   RECEPCION: "/recepcion",
   REPUESTOS: "/ordenes",
   CLIENTE: "/ordenes",
-  DEP_ENDEREZADA: "/departamentos/enderezado",
-  DEP_REPARACION_PINTURA: "/departamentos/pintura",
+  DEP_ENDEREZADA: "/ordenes",
+  DEP_REPARACION_PINTURA: "/ordenes",
   DEP_ENSAMBLAJE: "/ordenes",
-  DEP_MECANICA: "/departamentos/mecanica",
-  DEP_LAVADO_CALIDAD: "/departamentos/lavado",
+  DEP_MECANICA: "/ordenes",
+  DEP_LAVADO_CALIDAD: "/ordenes",
 }
 
 const knownRoleCodes = new Set<string>(Object.keys(roleLabels))
@@ -60,6 +62,10 @@ const roleAccessSummaries: Record<RoleCode, Omit<RoleAccessSummary, "code">> = {
   ASESOR: {
     title: "Asesor",
     description: "Seguimiento operativo de ordenes segun estados asignados.",
+  },
+  JEFE_TALLER: {
+    title: "Jefe de taller",
+    description: "Revision y direccion de ordenes hacia repuestos o bahias.",
   },
   RECEPCION: {
     title: "Recepcion",
@@ -124,6 +130,10 @@ export function getDefaultPathForUser(user: AuthUser | null | undefined) {
     if (path) {
       return path
     }
+  }
+
+  if (hasAssignedProcessStates(user)) {
+    return "/ordenes"
   }
 
   return null
@@ -226,18 +236,28 @@ export function canAccessAsesor(user: AuthUser | null | undefined) {
   return hasExplicitRole(user, ["ASESOR"])
 }
 
+export function hasAssignedProcessStates(user: AuthUser | null | undefined) {
+  return Boolean(
+    user?.roles.some((role) => (role.estados?.length ?? 0) > 0)
+  )
+}
+
 export function canAccessWorkOrders(user: AuthUser | null | undefined) {
-  return hasAnyRole(user, [
-    "ASESOR",
-    "RECEPCION",
-    "REPUESTOS",
-    "CLIENTE",
-    "DEP_ENDEREZADA",
-    "DEP_REPARACION_PINTURA",
-    "DEP_ENSAMBLAJE",
-    "DEP_MECANICA",
-    "DEP_LAVADO_CALIDAD",
-  ])
+  return (
+    hasAssignedProcessStates(user) ||
+    hasAnyRole(user, [
+      "ASESOR",
+      "JEFE_TALLER",
+      "RECEPCION",
+      "REPUESTOS",
+      "CLIENTE",
+      "DEP_ENDEREZADA",
+      "DEP_REPARACION_PINTURA",
+      "DEP_ENSAMBLAJE",
+      "DEP_MECANICA",
+      "DEP_LAVADO_CALIDAD",
+    ])
+  )
 }
 
 export function canAccessPath(user: AuthUser | null | undefined, path: string) {
@@ -289,18 +309,7 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
     return canAccessAsesor(user)
   }
 
-  const departmentPath = path.match(/^\/departamentos\/([^/]+)/)
-  if (!departmentPath) {
-    return false
-  }
-
-  const department = departmentPath[1] as Department
-
-  if (!allDepartments.includes(department)) {
-    return false
-  }
-
-  return canAccessDepartment(user, department)
+  return false
 }
 
 export function getRoleAccessSummaries(user: AuthUser | null | undefined) {
@@ -357,6 +366,13 @@ export function getDashboardCopy(user: AuthUser | null | undefined) {
     return {
       title: "Panel de asesor",
       description: "Acceso enfocado en ordenes habilitadas por estado.",
+    }
+  }
+
+  if (hasAnyRole(user, ["JEFE_TALLER"])) {
+    return {
+      title: "Panel de jefe de taller",
+      description: "Ordenes pendientes de revision y direccion tecnica.",
     }
   }
 

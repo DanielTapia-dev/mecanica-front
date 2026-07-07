@@ -1,6 +1,6 @@
 import { getUserRoleCodes, getUserRoleIds, hasAnyRole } from "@/features/auth/permissions"
 import { normalizeRoleCode } from "@/features/auth/role-normalization"
-import type { AuthUser } from "@/features/auth/types"
+import type { AuthRoleState, AuthUser } from "@/features/auth/types"
 import { ESTADO_PROCESO_CODES } from "@/features/estados-proceso/constants"
 import { estadosProcesoService } from "@/features/estados-proceso/services/estados-proceso-service"
 import type { EstadoProceso } from "@/features/estados-proceso/types"
@@ -63,6 +63,17 @@ function getStateTokens(...values: Array<string | null | undefined>) {
   return new Set(
     values.flatMap((value) => getStateTokenAliases(normalizeStateToken(value)))
   )
+}
+
+function getRoleStateIdsFromSession(user: AuthUser) {
+  return [
+    ...new Set(
+      user.roles
+        .flatMap((role) => role.estados ?? [])
+        .map((state: AuthRoleState) => state.id)
+        .filter((stateId): stateId is string => Boolean(stateId))
+    ),
+  ]
 }
 
 export function findCurrentProcessState(
@@ -196,6 +207,7 @@ export async function loadProcessStateAccess(
   token?: string
 ): Promise<ProcessStateAccess> {
   let roleIds = getUserRoleIds(user)
+  const userRoleCodes = new Set(getUserRoleCodes(user))
   const empresaId = user.empresaId ?? user.empresa_id
   const processStates = empresaId
     ? await estadosProcesoService.listEstadosProcesoByEmpresa(empresaId, { token })
@@ -210,12 +222,24 @@ export async function loadProcessStateAccess(
   }
 
   if (roleIds.length === 0) {
-    const userRoleCodes = new Set(getUserRoleCodes(user))
     const roles = await rolesService.listRoles({ token })
 
     roleIds = roles
       .filter((role) => userRoleCodes.has(normalizeRoleCode(role.codigo)))
       .map((role) => role.id)
+  }
+
+  const sessionRoleStateIds = getRoleStateIdsFromSession(user)
+
+  if (sessionRoleStateIds.length > 0) {
+    const activeStateIds = new Set(activeStates.map((state) => state.id))
+
+    return {
+      processStates: activeStates,
+      allowedProcessStateIds: new Set(
+        sessionRoleStateIds.filter((stateId) => activeStateIds.has(stateId))
+      ),
+    }
   }
 
   if (roleIds.length === 0) {
@@ -225,18 +249,13 @@ export async function loadProcessStateAccess(
     }
   }
 
-  const roleStates = empresaId
-    ? await rolEstadosService.listRolEstadosByEmpresa(empresaId, { token })
-    : (
-        await Promise.all(
-          roleIds.map((roleId) => rolEstadosService.listEstadosByRol(roleId, { token }))
-        )
-      ).flat()
-  const roleIdSet = new Set(roleIds)
+  const roleStates = (
+    await Promise.all(
+      roleIds.map((roleId) => rolEstadosService.listEstadosByRol(roleId, { token }))
+    )
+  ).flat()
   const allowedProcessStateIds = new Set(
-    roleStates
-      .filter((roleState) => roleIdSet.has(roleState.rol_id))
-      .map((roleState) => roleState.estado_id)
+    roleStates.map((roleState) => roleState.estado_id)
   )
 
   return {

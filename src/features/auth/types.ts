@@ -1,6 +1,7 @@
 export type RoleCode =
   | "ADMIN"
   | "ASESOR"
+  | "JEFE_TALLER"
   | "RECEPCION"
   | "REPUESTOS"
   | "CLIENTE"
@@ -16,6 +17,13 @@ export interface AuthRole {
   codigo: RoleCode | string
   nombre: string
   tipo_rol?: string
+  estados?: AuthRoleState[]
+}
+
+export interface AuthRoleState {
+  id: string
+  codigo?: string
+  nombre?: string
 }
 
 export interface AuthUser {

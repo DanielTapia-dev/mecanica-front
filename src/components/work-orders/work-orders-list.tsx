@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   AlertCircle,
+  Calendar,
   ClipboardList,
+  Clock,
   Loader2,
   MoreHorizontal,
   Search,
@@ -12,7 +14,7 @@ import {
 import { ModuleHeader } from "@/components/layout/module-header"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -23,7 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/auth-context"
-import { ESTADO_PROCESO_CODES } from "@/features/estados-proceso/constants"
+import {
+  ESTADO_PROCESO_CODES,
+  ESTADO_PROCESO_LABELS,
+  type EstadoProcesoCode,
+} from "@/features/estados-proceso/constants"
 import { WorkOrderStateTransitionDialog } from "@/features/work-orders/components/work-order-state-transition-dialog"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
 import {
@@ -33,8 +39,14 @@ import {
 import {
   canAccessCurrentProcessState,
   loadProcessStateAccess,
+  sortProcessStatesByVisualOrder,
   type ProcessStateAccess,
 } from "@/features/work-orders/state-access"
+import { getWorkOrderProcessTransitionConfig } from "@/features/work-orders/transitions"
+import {
+  getProcessStateVisual,
+  type ProcessStateVisual,
+} from "@/features/work-orders/process-state-visuals"
 import type { WorkOrderListItem } from "@/features/work-orders/types"
 import {
   filterWorkOrders,
@@ -62,6 +74,175 @@ function formatDate(value?: string | null) {
   }).format(new Date(value))
 }
 
+function getOrderReferenceDate(order: WorkOrderListItem) {
+  return getWorkOrderUpdatedAt(order) ?? order.fecha_creacion ?? order.creado_en ?? null
+}
+
+function isSameLocalDate(value?: string | null, compareDate = new Date()) {
+  if (!value) {
+    return false
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return false
+  }
+
+  return (
+    date.getFullYear() === compareDate.getFullYear() &&
+    date.getMonth() === compareDate.getMonth() &&
+    date.getDate() === compareDate.getDate()
+  )
+}
+
+function getDaysWaiting(value?: string | null) {
+  if (!value) {
+    return 0
+  }
+
+  const date = new Date(value)
+  const time = date.getTime()
+
+  if (Number.isNaN(time)) {
+    return 0
+  }
+
+  const millisecondsPerDay = 24 * 60 * 60 * 1000
+
+  return Math.max(0, Math.floor((Date.now() - time) / millisecondsPerDay))
+}
+
+function isActiveProcessStateOrder(order: WorkOrderListItem) {
+  return (
+    String(order.estado_general).toLowerCase() !== "completado" &&
+    !order.fecha_finalizacion
+  )
+}
+
+function getScopedOrders(
+  orders: WorkOrderListItem[],
+  scope: { empresa_id?: string; sucursal_id?: string }
+) {
+  return orders.filter((order) => {
+    if (
+      scope.sucursal_id &&
+      order.sucursal_id &&
+      String(order.sucursal_id) !== String(scope.sucursal_id)
+    ) {
+      return false
+    }
+
+    if (
+      scope.empresa_id &&
+      order.empresa_id &&
+      String(order.empresa_id) !== String(scope.empresa_id)
+    ) {
+      return false
+    }
+
+    return true
+  })
+}
+
+function ProcessStateStats({
+  orders,
+  stateName,
+  visual,
+}: {
+  orders: WorkOrderListItem[]
+  stateName: string
+  visual: ProcessStateVisual
+}) {
+  const pendingOrders = orders.filter(isActiveProcessStateOrder)
+  const todayOrders = pendingOrders.filter((order) =>
+    isSameLocalDate(getOrderReferenceDate(order))
+  )
+  const oldestOrder = [...pendingOrders].sort((left, right) => {
+    const leftTime = new Date(getOrderReferenceDate(left) ?? 0).getTime()
+    const rightTime = new Date(getOrderReferenceDate(right) ?? 0).getTime()
+
+    return leftTime - rightTime
+  })[0]
+  const oldestReferenceDate = oldestOrder ? getOrderReferenceDate(oldestOrder) : null
+  const oldestDays = getDaysWaiting(oldestReferenceDate)
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <Card className={`border-border bg-card transition-colors ${visual.cardAccent}`}>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Pendientes
+          </CardTitle>
+          <span className={`flex size-9 items-center justify-center rounded-lg ${visual.iconBg} ${visual.iconText}`}>
+            <ClipboardList className="size-4" />
+          </span>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-foreground">{pendingOrders.length}</div>
+          <p className="text-xs text-muted-foreground">
+            Ordenes en {stateName}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className={`border-border bg-card transition-colors ${visual.cardAccent}`}>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Recibidas hoy
+          </CardTitle>
+          <span className="flex size-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-400">
+            <Calendar className="size-4" />
+          </span>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-foreground">{todayOrders.length}</div>
+          <p className="text-xs text-muted-foreground">
+            Movimientos registrados durante el dia
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className={`border-border bg-card transition-colors ${visual.cardAccent}`}>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Mayor espera
+          </CardTitle>
+          <span className="flex size-9 items-center justify-center rounded-lg bg-red-500/15 text-red-400">
+            <Clock className="size-4" />
+          </span>
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-foreground">
+            {oldestOrder ? `${oldestDays} ${oldestDays === 1 ? "dia" : "dias"}` : "0 dias"}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {oldestOrder ? `Orden ${oldestOrder.codigo || oldestOrder.id}` : "Sin ordenes en espera"}
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function ProcessStateToneBadge({
+  children,
+  visual,
+}: {
+  children: React.ReactNode
+  visual: ProcessStateVisual
+}) {
+  return (
+    <Badge
+      variant="outline"
+      className={`border-transparent ${visual.iconBg} ${visual.iconText}`}
+    >
+      <span className={`size-1.5 rounded-full ${visual.dot}`} />
+      {children}
+    </Badge>
+  )
+}
+
 export function WorkOrdersList() {
   const { user, sessionScope } = useAuth()
   const [orders, setOrders] = useState<WorkOrderListItem[]>([])
@@ -75,45 +256,113 @@ export function WorkOrdersList() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingStateAccess, setIsLoadingStateAccess] = useState(true)
+  const isAdmin = hasAnyRole(user, ["ADMIN"])
+  const focusedProcessStates = useMemo(
+    () =>
+      sortProcessStatesByVisualOrder(
+        stateAccess.processStates.filter((state) =>
+          stateAccess.allowedProcessStateIds.has(state.id)
+        )
+      ),
+    [stateAccess]
+  )
+  const focusedStateCodes = useMemo(
+    () => focusedProcessStates.map((state) => String(state.codigo).toUpperCase()),
+    [focusedProcessStates]
+  )
+  const focusedStateCode = focusedStateCodes[0] ?? null
+  const shouldUseFocusedStateView = Boolean(user) && !isAdmin
+  const showProcessStateStats =
+    shouldUseFocusedStateView && focusedProcessStates.length > 0
+  const scopeEmpresaId = sessionScope.empresa_id
+  const scopeSucursalId = sessionScope.sucursal_id
+  const focusedProcessStateIds = useMemo(
+    () => focusedProcessStates.map((state) => state.id),
+    [focusedProcessStates]
+  )
+  const focusedProcessStateName =
+    focusedProcessStates.length > 1
+      ? focusedProcessStates.map((state) => state.nombre).join(" / ")
+      : focusedProcessStates[0]?.nombre ??
+        (focusedStateCode
+          ? ESTADO_PROCESO_LABELS[focusedStateCode as EstadoProcesoCode] ?? focusedStateCode
+          : null)
+
+  const refreshOrders = useCallback(async () => {
+    if (shouldUseFocusedStateView && isLoadingStateAccess) {
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+    setActionError(null)
+
+    try {
+      if (shouldUseFocusedStateView && stateAccessError) {
+        setOrders([])
+        return
+      }
+
+      if (shouldUseFocusedStateView && focusedProcessStateIds.length === 0) {
+        setOrders([])
+        return
+      }
+
+      const result = shouldUseFocusedStateView
+        ? {
+            data: [
+              ...new Map(
+                (
+                  await Promise.all(
+                    focusedProcessStateIds.map((stateId) =>
+                      workOrdersService.listWorkOrders({ estado_actual_id: stateId })
+                    )
+                  )
+                )
+                  .flatMap((stateResult) => stateResult.data)
+                  .map((order) => [order.id, order])
+              ).values(),
+            ],
+          }
+        : await workOrdersService.listWorkOrders(
+            scopeSucursalId
+              ? { sucursal_id: scopeSucursalId }
+              : scopeEmpresaId
+                ? { empresa_id: scopeEmpresaId }
+                : undefined
+          )
+      const scopedOrders = shouldUseFocusedStateView
+        ? getScopedOrders(result.data, {
+            empresa_id: scopeEmpresaId,
+            sucursal_id: scopeSucursalId,
+          })
+        : result.data
+
+      setOrders(sortWorkOrdersByUpdatedAt(scopedOrders))
+    } catch (loadError) {
+      setOrders([])
+      setError(getErrorMessage(loadError))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [
+    focusedProcessStateIds,
+    isLoadingStateAccess,
+    shouldUseFocusedStateView,
+    scopeEmpresaId,
+    scopeSucursalId,
+    stateAccessError,
+  ])
 
   useEffect(() => {
-    let isMounted = true
-
-    async function loadOrders() {
-      setIsLoading(true)
-      setError(null)
-      setActionError(null)
-
-      try {
-        const result = await workOrdersService.listWorkOrders(
-          sessionScope.sucursal_id
-            ? { sucursal_id: sessionScope.sucursal_id }
-            : sessionScope.empresa_id
-              ? { empresa_id: sessionScope.empresa_id }
-              : undefined
-        )
-
-        if (isMounted) {
-          setOrders(sortWorkOrdersByUpdatedAt(result.data))
-        }
-      } catch (loadError) {
-        if (isMounted) {
-          setOrders([])
-          setError(getErrorMessage(loadError))
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
-    void loadOrders()
+    const timeoutId = window.setTimeout(() => {
+      void refreshOrders()
+    }, 0)
 
     return () => {
-      isMounted = false
+      window.clearTimeout(timeoutId)
     }
-  }, [sessionScope.empresa_id, sessionScope.sucursal_id])
+  }, [refreshOrders])
 
   useEffect(() => {
     let isMounted = true
@@ -160,28 +409,54 @@ export function WorkOrdersList() {
     }
   }, [user])
 
-  const filteredOrders = query.trim()
-    ? filterWorkOrders(orders, { query: query.trim() })
-    : orders
-  const visibleOrders =
+  const accessibleOrders =
     !isLoadingStateAccess && !stateAccessError
-      ? filteredOrders.filter((order) =>
+      ? orders.filter((order) =>
           canAccessCurrentProcessState(user, order, stateAccess)
         )
       : []
+  const visibleOrders = query.trim()
+    ? filterWorkOrders(accessibleOrders, { query: query.trim() })
+    : accessibleOrders
   const isPageLoading = isLoading || isLoadingStateAccess
   const canOpenNewOrder = hasAnyRole(user, ["ASESOR", "RECEPCION"])
   const newOrderHref = hasExplicitRole(user, ["ASESOR"])
     ? "/departamentos/asesor/nueva-orden"
     : "/ordenes/nueva"
+  const pageTitle =
+    focusedStateCode === ESTADO_PROCESO_CODES.ASESOR
+      ? "Ordenes de Asesoria"
+      : focusedStateCode === ESTADO_PROCESO_CODES.JEFE_TALLER
+      ? "Ordenes de Jefe de Taller"
+      : focusedStateCode === ESTADO_PROCESO_CODES.REPUESTOS
+        ? "Solicitud de Repuestos"
+        : focusedStateCode === ESTADO_PROCESO_CODES.PROGRAMAR_CITA
+          ? "Programar cita"
+        : showProcessStateStats && focusedProcessStateName
+          ? `Ordenes en ${focusedProcessStateName}`
+          : "Ordenes"
+  const pageDescription =
+    focusedStateCode === ESTADO_PROCESO_CODES.ASESOR
+      ? "Revisa las ordenes de ingreso y envialas a Jefe de Taller."
+      : focusedStateCode === ESTADO_PROCESO_CODES.JEFE_TALLER
+      ? "Revisa las ordenes pendientes y envialas a programar cita, repuestos o a la bahia correspondiente."
+      : focusedStateCode === ESTADO_PROCESO_CODES.REPUESTOS
+        ? "Gestiona las ordenes listas para pasar de repuestos a programar cita o a una bahia operativa."
+        : focusedStateCode === ESTADO_PROCESO_CODES.PROGRAMAR_CITA
+          ? "Gestiona las ordenes pendientes de cita y envialas a la bahia correspondiente."
+        : showProcessStateStats
+          ? "Gestiona las ordenes del estado actual y envialas a otra bahia o a finalizado."
+          : "Consulta las ordenes existentes ordenadas por actividad reciente."
+  const processVisual = getProcessStateVisual(focusedStateCode)
+  const HeaderIcon = processVisual.Icon
 
   return (
     <div className="space-y-5">
       <ModuleHeader
-        title="Ordenes"
-        description="Consulta las ordenes existentes ordenadas por actividad reciente."
-        icon={<ClipboardList className="size-6" />}
-        iconClassName="bg-primary text-primary-foreground"
+        title={pageTitle}
+        description={pageDescription}
+        icon={<HeaderIcon className="size-6" />}
+        iconClassName={processVisual.moduleIcon}
         actions={
           canOpenNewOrder ? (
             <Link href={newOrderHref} className={buttonVariants()}>
@@ -191,16 +466,30 @@ export function WorkOrdersList() {
         }
       />
 
-      <Card>
+      {showProcessStateStats && focusedProcessStateName && (
+        <ProcessStateStats
+          orders={accessibleOrders}
+          stateName={focusedProcessStateName}
+          visual={processVisual}
+        />
+      )}
+
+      <Card className={`border-border bg-card transition-colors ${processVisual.cardAccent}`}>
         <CardContent className="space-y-4 p-4">
-          <div className="relative max-w-xl">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por codigo, placa, cliente o estado"
-              className="pl-9"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full max-w-xl">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar por codigo, placa, cliente o estado"
+                className="border-border bg-input pl-9"
+              />
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className={`size-2 rounded-full ${processVisual.dot}`} />
+              <span>{visibleOrders.length} ordenes visibles</span>
+            </div>
           </div>
 
           {isPageLoading && (
@@ -233,7 +522,7 @@ export function WorkOrdersList() {
 
           {!isPageLoading && !error && !stateAccessError && visibleOrders.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-              <div className="flex size-11 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <div className={`flex size-11 items-center justify-center rounded-lg ${processVisual.iconBg} ${processVisual.iconText}`}>
                 <ClipboardList className="size-5" />
               </div>
               <div>
@@ -246,14 +535,14 @@ export function WorkOrdersList() {
           )}
 
           {!isPageLoading && !error && !stateAccessError && visibleOrders.length > 0 && (
-            <Table>
+            <div className="overflow-hidden rounded-lg border border-border">
+              <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-border bg-muted/50 hover:bg-muted/50">
                   <TableHead>Orden</TableHead>
                   <TableHead>Vehiculo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Etapa</TableHead>
-                  <TableHead>Estado</TableHead>
                   <TableHead>Reciente</TableHead>
                   <TableHead className="text-right">Accion</TableHead>
                 </TableRow>
@@ -265,19 +554,29 @@ export function WorkOrdersList() {
                     order,
                     stateAccess
                   )
+                  const transitionConfig = getWorkOrderProcessTransitionConfig(
+                    order,
+                    stateAccess.processStates,
+                    user
+                  )
+                  const rowVisual = getProcessStateVisual(
+                    transitionConfig.currentState?.codigo ?? focusedStateCode
+                  )
 
                   return (
-                    <TableRow key={order.id}>
+                    <TableRow
+                      key={order.id}
+                      className="border-border transition-colors hover:bg-muted/50"
+                    >
                       <TableCell className="font-medium text-foreground">
                         {order.codigo || order.id}
                       </TableCell>
                       <TableCell>{getVehicleDisplayName(order)}</TableCell>
                       <TableCell>{getCustomerDisplayName(order)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{order.etapa_actual}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge>{order.estado_general}</Badge>
+                        <ProcessStateToneBadge visual={rowVisual}>
+                          {order.etapa_actual}
+                        </ProcessStateToneBadge>
                       </TableCell>
                       <TableCell>{formatDate(getWorkOrderUpdatedAt(order))}</TableCell>
                       <TableCell className="text-right">
@@ -291,21 +590,19 @@ export function WorkOrdersList() {
                           <WorkOrderStateTransitionDialog
                             order={order}
                             processStates={stateAccess.processStates}
-                            allowedSourceStateCodes={[ESTADO_PROCESO_CODES.ASESOR]}
-                            allowedTargetStateCodes={[ESTADO_PROCESO_CODES.JEFE_TALLER]}
-                            disabled={!hasOrderStateAccess}
-                            unavailableMessage="Esta orden solo se puede enviar desde Asesoria / Ingreso hacia Jefe de Taller."
+                            allowedSourceStateCodes={
+                              transitionConfig.allowedSourceStateCodes
+                            }
+                            allowedTargetStateCodes={
+                              transitionConfig.allowedTargetStateCodes
+                            }
+                            disabled={
+                              !hasOrderStateAccess || !transitionConfig.canTransition
+                            }
+                            unavailableMessage={transitionConfig.unavailableMessage}
                             onError={setActionError}
-                            onOrderUpdated={(updatedOrder) => {
-                              setOrders((currentOrders) =>
-                                sortWorkOrdersByUpdatedAt(
-                                  currentOrders.map((currentOrder) =>
-                                    currentOrder.id === order.id
-                                      ? updatedOrder
-                                      : currentOrder
-                                  )
-                                )
-                              )
+                            onOrderUpdated={() => {
+                              void refreshOrders()
                             }}
                             trigger={({ isSubmitting }) => (
                               <Button
@@ -329,7 +626,8 @@ export function WorkOrdersList() {
                   )
                 })}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

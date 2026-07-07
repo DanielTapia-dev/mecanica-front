@@ -12,6 +12,7 @@ export function normalizeRoleCode(roleCode: string) {
     ADMINISTRADOR: "ADMIN",
     ASESOR_DE_SERVICIO: "ASESOR",
     ASESOR_SERVICIO: "ASESOR",
+    JEFE_DE_TALLER: "JEFE_TALLER",
     SUPER_ADMIN: "ADMIN",
     SUPERADMIN: "ADMIN",
     RECEPCIONISTA: "RECEPCION",

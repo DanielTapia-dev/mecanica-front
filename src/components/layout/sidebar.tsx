@@ -4,26 +4,23 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  LayoutDashboard,
-  ClipboardList,
-  Users,
-  Building2,
-  MapPin,
-  ShieldCheck,
-  Contact,
-  Car,
-  Wrench,
-  Paintbrush,
-  Droplets,
-  Hammer,
-  ListOrdered,
-  Settings,
-  Menu,
-  X,
-  LogOut,
   Bell,
+  Building2,
+  Car,
+  ClipboardList,
+  Contact,
+  LayoutDashboard,
+  ListOrdered,
+  LogOut,
+  MapPin,
+  Menu,
   Moon,
+  Settings,
+  ShieldCheck,
   Sun,
+  Users,
+  Wrench,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -51,13 +48,9 @@ const navItems = [
   { href: "/roles", label: "Roles", icon: ShieldCheck },
   { href: "/usuarios", label: "Usuarios", icon: Users },
   { href: "/clientes", label: "Clientes", icon: Contact },
-  { href: "/vehiculos", label: "Vehículos", icon: Car },
+  { href: "/vehiculos", label: "Vehiculos", icon: Car },
   { href: "/ordenes", label: "Ordenes", icon: ClipboardList },
   { href: "/recepcion", label: "Recepcion", icon: LayoutDashboard },
-  { href: "/departamentos/enderezado", label: "Enderezado", icon: Hammer },
-  { href: "/departamentos/pintura", label: "Pintura", icon: Paintbrush },
-  { href: "/departamentos/mecanica", label: "Mecánica", icon: Wrench },
-  { href: "/departamentos/lavado", label: "Lavado", icon: Droplets },
 ]
 
 export function Sidebar() {
@@ -78,17 +71,17 @@ export function Sidebar() {
 
       return 0
     })
-  const userInitials = user?.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase() ?? "US"
+  const userInitials =
+    user?.name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() ?? "US"
   const roleLabel = getUserRoleLabel(user)
 
   return (
     <>
-      {/* Mobile toggle */}
       <Button
         variant="ghost"
         size="icon"
@@ -98,7 +91,6 @@ export function Sidebar() {
         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
 
-      {/* Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
@@ -106,7 +98,6 @@ export function Sidebar() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 w-64 transform border-r border-border bg-sidebar transition-transform duration-200 ease-in-out lg:translate-x-0",
@@ -114,7 +105,6 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-full flex-col">
-          {/* Logo */}
           <div className="flex h-16 items-center gap-2 border-b border-border px-6">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Wrench className="h-4 w-4 text-primary-foreground" />
@@ -124,16 +114,19 @@ export function Sidebar() {
                 {user?.empresaNombre ?? "AutoTaller Pro"}
               </p>
               {user?.sucursalNombre && (
-                <p className="truncate text-xs text-muted-foreground">{user.sucursalNombre}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user.sucursalNombre}
+                </p>
               )}
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 space-y-1 p-4">
             {visibleNavItems.map((item) => {
-              const isActive = pathname === item.href || 
+              const isActive =
+                pathname === item.href ||
                 (item.href !== "/" && pathname.startsWith(item.href))
+
               return (
                 <Link
                   key={item.href}
@@ -153,7 +146,6 @@ export function Sidebar() {
             })}
           </nav>
 
-          {/* User section */}
           <div className="border-t border-border p-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -172,12 +164,12 @@ export function Sidebar() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
-                  Configuración
+                  Configuracion
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive" onClick={logout}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Cerrar sesión
+                  Cerrar sesion
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

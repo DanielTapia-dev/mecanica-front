@@ -6,7 +6,7 @@ import {
   getAuthCookieOptions,
 } from "@/features/auth/session-cookies"
 import { normalizeRoleCode } from "@/features/auth/role-normalization"
-import type { AuthRole, AuthUser } from "@/features/auth/types"
+import type { AuthRole, AuthRoleState, AuthUser } from "@/features/auth/types"
 
 const DEFAULT_BACKEND_URL = "http://localhost:8011"
 const LOGIN_PATH = "/api/mecanica/login"
@@ -104,7 +104,42 @@ function readSingleRoleObject(source: JsonRecord, key: string): AuthRole | undef
     codigo: normalizeRoleCode(rawCode),
     nombre: readString(value, ["nombre", "name"]) ?? rawCode,
     tipo_rol: readString(value, ["tipo_rol", "type"]),
+    estados: readRoleStates(value),
   }
+}
+
+function readRoleStates(source: JsonRecord): AuthRoleState[] {
+  const states = [
+    source.estados,
+    source.estados_proceso,
+    source.estadosProceso,
+    source.processStates,
+    source.process_states,
+  ].find(Array.isArray)
+
+  if (!Array.isArray(states)) {
+    return []
+  }
+
+  return states
+    .map((state): AuthRoleState | undefined => {
+      if (!isRecord(state)) {
+        return undefined
+      }
+
+      const id = readString(state, ["id", "estado_id", "estadoId"])
+
+      if (!id) {
+        return undefined
+      }
+
+      return {
+        id,
+        codigo: readString(state, ["codigo", "estado_codigo", "estadoCodigo"]),
+        nombre: readString(state, ["nombre", "estado_nombre", "estadoNombre"]),
+      }
+    })
+    .filter((state): state is AuthRoleState => Boolean(state))
 }
 
 function readRoles(source: JsonRecord): AuthRole[] {
@@ -155,6 +190,7 @@ function readRoles(source: JsonRecord): AuthRole[] {
           codigo,
           nombre: readString(roleSource, ["nombre", "name"]) ?? rawCode,
           tipo_rol: readString(roleSource, ["tipo_rol", "type"]),
+          estados: readRoleStates(roleSource),
         }
       })
       .filter((role): role is AuthRole => Boolean(role))
