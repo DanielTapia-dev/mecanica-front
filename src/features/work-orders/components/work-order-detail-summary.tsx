@@ -15,15 +15,14 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/features/auth/auth-context"
 import { hasAnyRole, hasExplicitRole } from "@/features/auth/permissions"
-import { ESTADO_PROCESO_CODES } from "@/features/estados-proceso/constants"
 import type { EstadoProceso } from "@/features/estados-proceso/types"
 import { WorkOrderStateTransitionDialog } from "@/features/work-orders/components/work-order-state-transition-dialog"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
 import {
-  findCurrentProcessState,
   getWorkOrderTransitionTargets,
   loadProcessStateAccess,
 } from "@/features/work-orders/state-access"
+import { getWorkOrderProcessTransitionConfig } from "@/features/work-orders/transitions"
 import type { EntityId, WorkOrder } from "@/features/work-orders/types"
 import {
   getCustomerDisplayName,
@@ -185,13 +184,16 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
 
   const primaryAction = getWorkOrderPrimaryAction(order)
   const isAdmin = hasAnyRole(user, ["ADMIN"])
-  const currentProcessState = findCurrentProcessState(order, processStates)
+  const transitionConfig = getWorkOrderProcessTransitionConfig(
+    order,
+    processStates,
+    user
+  )
+  const currentProcessState = transitionConfig.currentState
   const transitionTargets = getWorkOrderTransitionTargets(order, processStates, {
-    allowedSourceStateCodes: [ESTADO_PROCESO_CODES.ASESOR],
-    allowedTargetStateCodes: [ESTADO_PROCESO_CODES.JEFE_TALLER],
+    allowedSourceStateCodes: transitionConfig.allowedSourceStateCodes,
+    allowedTargetStateCodes: transitionConfig.allowedTargetStateCodes,
   })
-  const isDirectTransitionSource =
-    String(currentProcessState?.codigo ?? "").toUpperCase() === ESTADO_PROCESO_CODES.ASESOR
   const hasActionRole = hasAnyRole(user, primaryAction.allowedRoles)
   const hasStateAccess =
     isAdmin || Boolean(currentProcessState && allowedProcessStateIds.has(currentProcessState.id))
@@ -215,15 +217,16 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
     (!hasStateAccess
       ? "Tu rol no tiene acceso al estado actual de esta orden."
       : undefined) ??
-    (!isDirectTransitionSource
-      ? "Esta accion solo esta disponible desde Asesoria / Ingreso."
+    (!transitionConfig.canTransition
+      ? "Tu rol no tiene habilitada esta transicion."
       : undefined) ??
     (transitionTargets.length === 0
-      ? "La orden no tiene destino activo para Jefe de Taller."
+      ? transitionConfig.unavailableMessage
       : undefined)
   const canMoveToTargetState =
     !isLoadingStateAccess &&
     !stateAccessError &&
+    transitionConfig.canTransition &&
     hasStateAccess &&
     transitionTargets.length > 0
   const customerName = getCustomerDisplayName(order)
@@ -292,13 +295,18 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
             <WorkOrderStateTransitionDialog
               order={order}
               processStates={processStates}
-              allowedSourceStateCodes={[ESTADO_PROCESO_CODES.ASESOR]}
-              allowedTargetStateCodes={[ESTADO_PROCESO_CODES.JEFE_TALLER]}
-              disabled={!hasStateAccess || Boolean(stateAccessError) || isLoadingStateAccess}
+              allowedSourceStateCodes={transitionConfig.allowedSourceStateCodes}
+              allowedTargetStateCodes={transitionConfig.allowedTargetStateCodes}
+              disabled={
+                !transitionConfig.canTransition ||
+                !hasStateAccess ||
+                Boolean(stateAccessError) ||
+                isLoadingStateAccess
+              }
               currentStateName={currentProcessState?.nombre ?? order.etapa_actual}
               vehicleName={vehicleName}
               customerName={customerName}
-              unavailableMessage="Esta orden solo se puede enviar desde Asesoria / Ingreso hacia Jefe de Taller."
+              unavailableMessage={transitionConfig.unavailableMessage}
               onError={setActionError}
               onOrderUpdated={setOrder}
               trigger={({ isSubmitting }) => (
@@ -307,6 +315,7 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
                   disabled={
                     isSubmitting ||
                     !hasStateAccess ||
+                    !transitionConfig.canTransition ||
                     Boolean(stateAccessError) ||
                     isLoadingStateAccess
                   }

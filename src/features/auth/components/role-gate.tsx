@@ -6,30 +6,35 @@ import { Loader2 } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import { AccessDenied } from "@/features/auth/components/access-denied"
 import {
+  canAccessWorkOrders,
   getDefaultPathForUser,
   hasAnyRole,
   hasExplicitRole,
 } from "@/features/auth/permissions"
-import type { RoleCode } from "@/features/auth/types"
 
 interface RoleGateProps {
-  allowedRoles: readonly RoleCode[]
+  allowedRoles?: readonly string[]
   allowAdmin?: boolean
+  requireWorkOrdersAccess?: boolean
   children: React.ReactNode
 }
 
 export function RoleGate({
-  allowedRoles,
+  allowedRoles = [],
   allowAdmin = true,
+  requireWorkOrdersAccess = false,
   children,
 }: RoleGateProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
 
-  const hasAccess = allowAdmin
+  const hasRoleAccess = allowAdmin
     ? hasAnyRole(user, allowedRoles)
     : hasExplicitRole(user, allowedRoles)
+  const hasAccess = requireWorkOrdersAccess
+    ? canAccessWorkOrders(user)
+    : hasRoleAccess
   const redirectTo = getDefaultPathForUser(user)
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, type ReactElement } from "react"
-import { ArrowRight, ClipboardList, Loader2 } from "lucide-react"
+import { ClipboardList, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,7 +12,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { ESTADO_PROCESO_CODES } from "@/features/estados-proceso/constants"
+import {
+  ESTADO_PROCESO_CODES,
+  OPERATIONAL_ESTADO_PROCESO_CODES,
+} from "@/features/estados-proceso/constants"
 import type { EstadoProceso } from "@/features/estados-proceso/types"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
 import {
@@ -24,6 +27,7 @@ import {
   getCustomerDisplayName,
   getVehicleDisplayName,
 } from "@/features/work-orders/utils"
+import { getProcessStateVisual } from "@/features/work-orders/process-state-visuals"
 
 export interface WorkOrderStateTransitionTriggerState {
   canSubmit: boolean
@@ -70,6 +74,20 @@ function getTargetHint(targetState: EstadoProceso) {
     return "Gestion de repuestos"
   }
 
+  if (code === ESTADO_PROCESO_CODES.PROGRAMAR_CITA) {
+    return "Agendamiento con cliente"
+  }
+
+  if (code === ESTADO_PROCESO_CODES.FINALIZADO) {
+    return "Entrega y cierre"
+  }
+
+  const workshopLeadTargetCodes = new Set<string>(OPERATIONAL_ESTADO_PROCESO_CODES)
+
+  if (workshopLeadTargetCodes.has(code)) {
+    return "Bahia operativa"
+  }
+
   return "Nuevo estado de la orden"
 }
 
@@ -78,6 +96,14 @@ function getTargetLabel(targetState: EstadoProceso) {
 
   if (code === ESTADO_PROCESO_CODES.REPUESTOS) {
     return "Solicitud de Repuestos"
+  }
+
+  if (code === ESTADO_PROCESO_CODES.PROGRAMAR_CITA) {
+    return "Programar cita"
+  }
+
+  if (code === ESTADO_PROCESO_CODES.FINALIZADO) {
+    return "Finalizar orden"
   }
 
   return targetState.nombre
@@ -195,32 +221,39 @@ export function WorkOrderStateTransitionDialog({
 
         {transitionTargets.length > 0 ? (
           <div className="grid gap-2">
-            {transitionTargets.map((targetState) => (
-              <Button
-                key={targetState.id}
-                type="button"
-                variant="outline"
-                className="h-auto w-full justify-start gap-3 whitespace-normal p-3 text-left"
-                disabled={!canSubmit || isSubmitting}
-                onClick={() => void handleSelectTarget(targetState)}
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {isSubmitting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <ArrowRight className="size-4" />
-                  )}
-                </span>
-                <span className="grid gap-1">
-                  <span className="font-medium text-foreground">
-                    {getTargetLabel(targetState)}
+            {transitionTargets.map((targetState) => {
+              const targetVisual = getProcessStateVisual(String(targetState.codigo))
+              const TargetIcon = targetVisual.Icon
+
+              return (
+                <Button
+                  key={targetState.id}
+                  type="button"
+                  variant="outline"
+                  className="h-auto w-full justify-start gap-3 whitespace-normal p-3 text-left"
+                  disabled={!canSubmit || isSubmitting}
+                  onClick={() => void handleSelectTarget(targetState)}
+                >
+                  <span
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${targetVisual.iconBg} ${targetVisual.iconText}`}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <TargetIcon className="size-4" />
+                    )}
                   </span>
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {getTargetHint(targetState)}
+                  <span className="grid gap-1">
+                    <span className="font-medium text-foreground">
+                      {getTargetLabel(targetState)}
+                    </span>
+                    <span className="text-xs font-normal text-muted-foreground">
+                      {getTargetHint(targetState)}
+                    </span>
                   </span>
-                </span>
-              </Button>
-            ))}
+                </Button>
+              )
+            })}
           </div>
         ) : (
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-muted-foreground">

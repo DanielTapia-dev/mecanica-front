@@ -45,14 +45,17 @@ function readNestedId(source: JsonRecord, key: string) {
   return isRecord(value) ? readString(value, ["id"]) : undefined
 }
 
-function normalizeRolEstado(raw: unknown): RolEstado | undefined {
+function normalizeRolEstado(raw: unknown, fallbackRolId?: string): RolEstado | undefined {
   if (!isRecord(raw)) {
     return undefined
   }
 
-  const id = readString(raw, ["id"])
-  const rolId = readString(raw, ["rol_id", "rolId"]) ?? readNestedId(raw, "rol")
-  const estadoId = readString(raw, ["estado_id", "estadoId"]) ?? readNestedId(raw, "estado")
+  const rolId = readString(raw, ["rol_id", "rolId"]) ?? readNestedId(raw, "rol") ?? fallbackRolId
+  const estadoId =
+    readString(raw, ["estado_id", "estadoId"]) ??
+    readNestedId(raw, "estado") ??
+    (readString(raw, ["codigo", "nombre"]) ? readString(raw, ["id"]) : undefined)
+  const id = readString(raw, ["id"]) ?? (rolId && estadoId ? `${rolId}:${estadoId}` : undefined)
 
   if (!id || !rolId || !estadoId) {
     return undefined
@@ -75,15 +78,21 @@ function getErrorMessage(payload: unknown) {
   return readString(payload, ["message", "error", "detail"])
 }
 
-function getListData(payload: unknown, keys: string[]) {
+function getListData(payload: unknown, keys: string[], fallbackRolId?: string) {
+  const dataRecord = isRecord(payload) && isRecord(payload.data) ? payload.data : undefined
   const list = Array.isArray(payload)
     ? payload
     : isRecord(payload)
-      ? keys.map((key) => payload[key]).find(Array.isArray)
+      ? [
+          ...keys.map((key) => payload[key]),
+          ...keys.map((key) => dataRecord?.[key]),
+        ].find(Array.isArray)
       : undefined
 
   return Array.isArray(list)
-    ? list.map(normalizeRolEstado).filter((item): item is RolEstado => Boolean(item))
+    ? list
+        .map((item) => normalizeRolEstado(item, fallbackRolId))
+        .filter((item): item is RolEstado => Boolean(item))
     : []
 }
 
@@ -173,7 +182,7 @@ export const rolEstadosService = {
       rolEstadosApiPaths.estadosByRol(rolId),
       options
     )
-    return getListData(payload, ["estados", "rol_estados", "data"])
+    return getListData(payload, ["estados", "rol_estados", "data"], rolId)
   },
 
   async listRolesByEstado(

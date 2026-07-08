@@ -30,7 +30,7 @@ export const operationalDepartmentOptions: OperationalDepartmentOption[] = [
     codigo: "ENDEREZADA",
     label: "Enderezada",
     shortLabel: "Enderezada",
-    route: "/departamentos/enderezado",
+    route: "/ordenes",
     roleCode: "DEP_ENDEREZADA",
   },
   {
@@ -38,7 +38,7 @@ export const operationalDepartmentOptions: OperationalDepartmentOption[] = [
     codigo: "REPARACION_PINTURA",
     label: "Reparacion y pintura",
     shortLabel: "Pintura",
-    route: "/departamentos/pintura",
+    route: "/ordenes",
     roleCode: "DEP_REPARACION_PINTURA",
   },
   {
@@ -46,7 +46,7 @@ export const operationalDepartmentOptions: OperationalDepartmentOption[] = [
     codigo: "ENSAMBLAJE",
     label: "Ensamblaje",
     shortLabel: "Ensamblaje",
-    route: "/departamentos/ensamblaje",
+    route: "/ordenes",
     roleCode: "DEP_ENSAMBLAJE",
   },
   {
@@ -54,7 +54,7 @@ export const operationalDepartmentOptions: OperationalDepartmentOption[] = [
     codigo: "MECANICA",
     label: "Mecanica",
     shortLabel: "Mecanica",
-    route: "/departamentos/mecanica",
+    route: "/ordenes",
     roleCode: "DEP_MECANICA",
   },
   {
@@ -62,7 +62,7 @@ export const operationalDepartmentOptions: OperationalDepartmentOption[] = [
     codigo: "LAVADO_CALIDAD",
     label: "Lavado y control de calidad",
     shortLabel: "Lavado",
-    route: "/departamentos/lavado",
+    route: "/ordenes",
     roleCode: "DEP_LAVADO_CALIDAD",
   },
 ]
