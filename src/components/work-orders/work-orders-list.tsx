@@ -244,7 +244,7 @@ function ProcessStateToneBadge({
 }
 
 export function WorkOrdersList() {
-  const { user, sessionScope } = useAuth()
+  const { user, sessionScope, roleStatePermissions } = useAuth()
   const [orders, setOrders] = useState<WorkOrderListItem[]>([])
   const [query, setQuery] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -256,7 +256,6 @@ export function WorkOrdersList() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingStateAccess, setIsLoadingStateAccess] = useState(true)
-  const isAdmin = hasAnyRole(user, ["ADMIN"])
   const focusedProcessStates = useMemo(
     () =>
       sortProcessStatesByVisualOrder(
@@ -271,7 +270,7 @@ export function WorkOrdersList() {
     [focusedProcessStates]
   )
   const focusedStateCode = focusedStateCodes[0] ?? null
-  const shouldUseFocusedStateView = Boolean(user) && !isAdmin
+  const shouldUseFocusedStateView = Boolean(user)
   const showProcessStateStats =
     shouldUseFocusedStateView && focusedProcessStates.length > 0
   const scopeEmpresaId = sessionScope.empresa_id
@@ -382,7 +381,11 @@ export function WorkOrdersList() {
       setStateAccessError(null)
 
       try {
-        const result = await loadProcessStateAccess(user)
+        const result = await loadProcessStateAccess(
+          user,
+          undefined,
+          roleStatePermissions.allowedProcessStateIds
+        )
 
         if (isMounted) {
           setStateAccess(result)
@@ -407,7 +410,7 @@ export function WorkOrdersList() {
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [roleStatePermissions.allowedProcessStateIds, user])
 
   const accessibleOrders =
     !isLoadingStateAccess && !stateAccessError
@@ -432,6 +435,8 @@ export function WorkOrdersList() {
         ? "Solicitud de Repuestos"
         : focusedStateCode === ESTADO_PROCESO_CODES.PROGRAMAR_CITA
           ? "Programar cita"
+        : focusedStateCode === ESTADO_PROCESO_CODES.AUTO_INGRESADO
+          ? "Autos ingresados"
         : showProcessStateStats && focusedProcessStateName
           ? `Ordenes en ${focusedProcessStateName}`
           : "Ordenes"
@@ -443,7 +448,9 @@ export function WorkOrdersList() {
       : focusedStateCode === ESTADO_PROCESO_CODES.REPUESTOS
         ? "Gestiona las ordenes listas para pasar de repuestos a programar cita o a una bahia operativa."
         : focusedStateCode === ESTADO_PROCESO_CODES.PROGRAMAR_CITA
-          ? "Gestiona las ordenes pendientes de cita y envialas a la bahia correspondiente."
+          ? "Gestiona las ordenes pendientes de cita y registra el ingreso del auto."
+        : focusedStateCode === ESTADO_PROCESO_CODES.AUTO_INGRESADO
+          ? "Asigna cada auto ingresado directamente a una bahia operativa."
         : showProcessStateStats
           ? "Gestiona las ordenes del estado actual y envialas a otra bahia o a finalizado."
           : "Consulta las ordenes existentes ordenadas por actividad reciente."
@@ -562,11 +569,18 @@ export function WorkOrdersList() {
                   const rowVisual = getProcessStateVisual(
                     transitionConfig.currentState?.codigo ?? focusedStateCode
                   )
+                  const isScheduleAppointmentOrder =
+                    String(transitionConfig.currentState?.codigo).toUpperCase() ===
+                    ESTADO_PROCESO_CODES.PROGRAMAR_CITA
 
                   return (
                     <TableRow
                       key={order.id}
-                      className="border-border transition-colors hover:bg-muted/50"
+                      className={`border-border transition-colors ${
+                        isScheduleAppointmentOrder
+                          ? "bg-red-500/10 hover:bg-red-500/15"
+                          : "hover:bg-muted/50"
+                      }`}
                     >
                       <TableCell className="font-medium text-foreground">
                         {order.codigo || order.id}

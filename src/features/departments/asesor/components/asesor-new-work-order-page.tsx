@@ -7,7 +7,7 @@ export function AsesorNewWorkOrderPage() {
     <section className="space-y-6">
       <ModuleHeader
         title="Nueva orden"
-        description="Crea una orden de trabajo desde los datos minimos del cliente y vehiculo."
+        description="Completa los datos requeridos del cliente, vehiculo y aseguradora para crear la orden."
         icon={<ClipboardPlus className="size-6" />}
         iconClassName="bg-primary text-primary-foreground"
       />

@@ -9,8 +9,11 @@ import { getDefaultPathForUser } from "@/features/auth/permissions"
 
 export function RoleRedirect() {
   const router = useRouter()
-  const { user } = useAuth()
-  const redirectTo = getDefaultPathForUser(user)
+  const { user, roleStatePermissions, roleStateAccessError } = useAuth()
+  const redirectTo = getDefaultPathForUser(
+    user,
+    roleStatePermissions.hasWorkOrdersAccess
+  )
 
   useEffect(() => {
     if (!user || !redirectTo) {
@@ -21,7 +24,14 @@ export function RoleRedirect() {
   }, [redirectTo, router, user])
 
   if (user && !redirectTo) {
-    return <AccessDenied />
+    return (
+      <AccessDenied
+        description={
+          roleStateAccessError ??
+          "Los roles del usuario no tienen modulos habilitados en rol-estados."
+        }
+      />
+    )
   }
 
   return (

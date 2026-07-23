@@ -8,6 +8,7 @@ export const roleLabels: Record<RoleCode, string> = {
   JEFE_TALLER: "Jefe de taller",
   RECEPCION: "Recepcion",
   REPUESTOS: "Repuestos",
+  CONTROL_CALIDAD: "Control de calidad",
   CLIENTE: "Cliente",
   DEP_ENDEREZADA: "Bahia de enderezada",
   DEP_REPARACION_PINTURA: "Bahia de reparacion y pintura",
@@ -31,22 +32,6 @@ const departmentByRole: Partial<Record<RoleCode, Department>> = {
 }
 
 const allDepartments: Department[] = ["enderezado", "pintura", "mecanica", "lavado"]
-
-const defaultPathByRole: Partial<Record<RoleCode, string>> = {
-  ADMIN: "/empresas",
-  ASESOR: "/ordenes",
-  JEFE_TALLER: "/ordenes",
-  RECEPCION: "/recepcion",
-  REPUESTOS: "/ordenes",
-  CLIENTE: "/ordenes",
-  DEP_ENDEREZADA: "/ordenes",
-  DEP_REPARACION_PINTURA: "/ordenes",
-  DEP_ENSAMBLAJE: "/ordenes",
-  DEP_MECANICA: "/ordenes",
-  DEP_LAVADO_CALIDAD: "/ordenes",
-}
-
-const knownRoleCodes = new Set<string>(Object.keys(roleLabels))
 
 export interface RoleAccessSummary {
   code: string
@@ -75,6 +60,10 @@ const roleAccessSummaries: Record<RoleCode, Omit<RoleAccessSummary, "code">> = {
     title: "Repuestos",
     description: "Solicitudes e items de repuestos por orden.",
   },
+  CONTROL_CALIDAD: {
+    title: "Control de calidad",
+    description: "Revision final y envio del vehiculo al proceso de entrega.",
+  },
   CLIENTE: {
     title: "Cliente",
     description: "Consulta del estado visible de sus ordenes.",
@@ -101,10 +90,6 @@ const roleAccessSummaries: Record<RoleCode, Omit<RoleAccessSummary, "code">> = {
   },
 }
 
-function isKnownRoleCode(roleCode: string): roleCode is RoleCode {
-  return knownRoleCodes.has(roleCode)
-}
-
 export function getUserRoleCodes(user: AuthUser | null | undefined) {
   return user?.roles.map((role) => normalizeRoleCode(role.codigo)) ?? []
 }
@@ -117,22 +102,21 @@ export function getUserRoleIds(user: AuthUser | null | undefined) {
   return [...new Set(roleIds)]
 }
 
-export function getDefaultPathForUser(user: AuthUser | null | undefined) {
+export function getDefaultPathForUser(
+  user: AuthUser | null | undefined,
+  hasWorkOrdersAccess = false
+) {
   const roleCodes = getUserRoleCodes(user)
 
-  for (const roleCode of roleCodes) {
-    if (!isKnownRoleCode(roleCode)) {
-      continue
-    }
-
-    const path = defaultPathByRole[roleCode]
-
-    if (path) {
-      return path
-    }
+  if (roleCodes.includes("ADMIN")) {
+    return "/empresas"
   }
 
-  if (hasAssignedProcessStates(user)) {
+  if (roleCodes.includes("RECEPCION")) {
+    return "/recepcion"
+  }
+
+  if (hasWorkOrdersAccess) {
     return "/ordenes"
   }
 
@@ -240,31 +224,18 @@ export function canAccessAsesor(user: AuthUser | null | undefined) {
   return hasExplicitRole(user, ["ASESOR"])
 }
 
-export function hasAssignedProcessStates(user: AuthUser | null | undefined) {
-  return Boolean(
-    user?.roles.some((role) => (role.estados?.length ?? 0) > 0)
-  )
+export function canAccessWorkOrders(
+  user: AuthUser | null | undefined,
+  hasWorkOrdersAccess = false
+) {
+  return Boolean(user) && hasWorkOrdersAccess
 }
 
-export function canAccessWorkOrders(user: AuthUser | null | undefined) {
-  return (
-    hasAssignedProcessStates(user) ||
-    hasAnyRole(user, [
-      "ASESOR",
-      "JEFE_TALLER",
-      "RECEPCION",
-      "REPUESTOS",
-      "CLIENTE",
-      "DEP_ENDEREZADA",
-      "DEP_REPARACION_PINTURA",
-      "DEP_ENSAMBLAJE",
-      "DEP_MECANICA",
-      "DEP_LAVADO_CALIDAD",
-    ])
-  )
-}
-
-export function canAccessPath(user: AuthUser | null | undefined, path: string) {
+export function canAccessPath(
+  user: AuthUser | null | undefined,
+  path: string,
+  hasWorkOrdersAccess = false
+) {
   if (path === "/") {
     return Boolean(user)
   }
@@ -310,7 +281,7 @@ export function canAccessPath(user: AuthUser | null | undefined, path: string) {
   }
 
   if (path === "/ordenes" || path.startsWith("/ordenes/")) {
-    return canAccessWorkOrders(user)
+    return canAccessWorkOrders(user, hasWorkOrdersAccess)
   }
 
   if (path === "/departamentos/asesor" || path.startsWith("/departamentos/asesor/")) {

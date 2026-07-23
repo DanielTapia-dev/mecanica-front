@@ -1,11 +1,8 @@
-import { getUserRoleCodes, getUserRoleIds, hasAnyRole } from "@/features/auth/permissions"
-import { normalizeRoleCode } from "@/features/auth/role-normalization"
-import type { AuthRoleState, AuthUser } from "@/features/auth/types"
+import { loadUserRoleStatePermissions } from "@/features/auth/role-state-permissions"
+import type { AuthUser } from "@/features/auth/types"
 import { ESTADO_PROCESO_CODES } from "@/features/estados-proceso/constants"
 import { estadosProcesoService } from "@/features/estados-proceso/services/estados-proceso-service"
 import type { EstadoProceso } from "@/features/estados-proceso/types"
-import { rolEstadosService } from "@/features/rol-estados/services/rol-estados-service"
-import { rolesService } from "@/features/roles/services/roles-service"
 import type { WorkOrder, WorkOrderListItem } from "@/features/work-orders/types"
 
 export interface ProcessStateAccess {
@@ -63,17 +60,6 @@ function getStateTokens(...values: Array<string | null | undefined>) {
   return new Set(
     values.flatMap((value) => getStateTokenAliases(normalizeStateToken(value)))
   )
-}
-
-function getRoleStateIdsFromSession(user: AuthUser) {
-  return [
-    ...new Set(
-      user.roles
-        .flatMap((role) => role.estados ?? [])
-        .map((state: AuthRoleState) => state.id)
-        .filter((stateId): stateId is string => Boolean(stateId))
-    ),
-  ]
 }
 
 export function findCurrentProcessState(
@@ -177,8 +163,8 @@ export function canAccessCurrentProcessState(
   order: WorkOrderStateSource,
   stateAccess: ProcessStateAccess
 ) {
-  if (hasAnyRole(user, ["ADMIN"])) {
-    return true
+  if (!user) {
+    return false
   }
 
   const orderStateIds = [
@@ -204,58 +190,27 @@ export function canAccessCurrentProcessState(
 
 export async function loadProcessStateAccess(
   user: AuthUser,
-  token?: string
+  token?: string,
+  authorizedProcessStateIds?: Set<string>
 ): Promise<ProcessStateAccess> {
-  let roleIds = getUserRoleIds(user)
-  const userRoleCodes = new Set(getUserRoleCodes(user))
   const empresaId = user.empresaId ?? user.empresa_id
-  const processStates = empresaId
-    ? await estadosProcesoService.listEstadosProcesoByEmpresa(empresaId, { token })
-    : await estadosProcesoService.listEstadosProceso({ token })
+  const [processStates, roleStatePermissions] = await Promise.all([
+    empresaId
+      ? estadosProcesoService.listEstadosProcesoByEmpresa(empresaId, { token })
+      : estadosProcesoService.listEstadosProceso({ token }),
+    authorizedProcessStateIds
+      ? Promise.resolve({
+          allowedProcessStateIds: authorizedProcessStateIds,
+          hasWorkOrdersAccess: authorizedProcessStateIds.size > 0,
+        })
+      : loadUserRoleStatePermissions(user, token),
+  ])
   const activeStates = processStates.filter((state) => state.activo)
-
-  if (hasAnyRole(user, ["ADMIN"])) {
-    return {
-      processStates: activeStates,
-      allowedProcessStateIds: new Set(activeStates.map((state) => state.id)),
-    }
-  }
-
-  if (roleIds.length === 0) {
-    const roles = await rolesService.listRoles({ token })
-
-    roleIds = roles
-      .filter((role) => userRoleCodes.has(normalizeRoleCode(role.codigo)))
-      .map((role) => role.id)
-  }
-
-  const sessionRoleStateIds = getRoleStateIdsFromSession(user)
-
-  if (sessionRoleStateIds.length > 0) {
-    const activeStateIds = new Set(activeStates.map((state) => state.id))
-
-    return {
-      processStates: activeStates,
-      allowedProcessStateIds: new Set(
-        sessionRoleStateIds.filter((stateId) => activeStateIds.has(stateId))
-      ),
-    }
-  }
-
-  if (roleIds.length === 0) {
-    return {
-      processStates: activeStates,
-      allowedProcessStateIds: new Set(),
-    }
-  }
-
-  const roleStates = (
-    await Promise.all(
-      roleIds.map((roleId) => rolEstadosService.listEstadosByRol(roleId, { token }))
-    )
-  ).flat()
+  const activeStateIds = new Set(activeStates.map((state) => String(state.id)))
   const allowedProcessStateIds = new Set(
-    roleStates.map((roleState) => roleState.estado_id)
+    [...roleStatePermissions.allowedProcessStateIds].filter((stateId) =>
+      activeStateIds.has(String(stateId))
+    )
   )
 
   return {

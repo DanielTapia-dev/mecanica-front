@@ -1,12 +1,15 @@
 import {
   CheckCircle2,
   CalendarClock,
+  CarFront,
   ClipboardCheck,
   ClipboardList,
   Droplets,
   Hammer,
+  KeyRound,
   PackageCheck,
   Paintbrush,
+  ShieldCheck,
   Wrench,
   type LucideIcon,
 } from "lucide-react"
@@ -48,11 +51,11 @@ const processStateVisuals: Partial<Record<EstadoProcesoCode, ProcessStateVisual>
   },
   PROGRAMAR_CITA: {
     Icon: CalendarClock,
-    cardAccent: "hover:border-violet-500/50",
-    dot: "bg-violet-500",
-    iconBg: "bg-violet-500/15",
-    iconText: "text-violet-400",
-    moduleIcon: "bg-violet-500 text-white",
+    cardAccent: "hover:border-red-500/50",
+    dot: "bg-red-500",
+    iconBg: "bg-red-500/15",
+    iconText: "text-red-400",
+    moduleIcon: "bg-red-500 text-white",
   },
   ENDEREZADA: {
     Icon: Hammer,
@@ -101,6 +104,30 @@ const processStateVisuals: Partial<Record<EstadoProcesoCode, ProcessStateVisual>
     iconBg: "bg-emerald-500/15",
     iconText: "text-emerald-400",
     moduleIcon: "bg-emerald-500 text-white",
+  },
+  CONTROL_CALIDAD: {
+    Icon: ShieldCheck,
+    cardAccent: "hover:border-teal-500/50",
+    dot: "bg-teal-500",
+    iconBg: "bg-teal-500/15",
+    iconText: "text-teal-400",
+    moduleIcon: "bg-teal-500 text-white",
+  },
+  AUTO_INGRESADO: {
+    Icon: CarFront,
+    cardAccent: "hover:border-blue-500/50",
+    dot: "bg-blue-500",
+    iconBg: "bg-blue-500/15",
+    iconText: "text-blue-400",
+    moduleIcon: "bg-blue-500 text-white",
+  },
+  ENTREGAR_AUTO: {
+    Icon: KeyRound,
+    cardAccent: "hover:border-lime-500/50",
+    dot: "bg-lime-500",
+    iconBg: "bg-lime-500/15",
+    iconText: "text-lime-400",
+    moduleIcon: "bg-lime-500 text-white",
   },
 }
 

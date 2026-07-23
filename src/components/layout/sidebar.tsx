@@ -55,11 +55,20 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user, logout, roleStatePermissions } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
-  const defaultPath = getDefaultPathForUser(user)
+  const defaultPath = getDefaultPathForUser(
+    user,
+    roleStatePermissions.hasWorkOrdersAccess
+  )
   const visibleNavItems = navItems
-    .filter((item) => canAccessPath(user, item.href))
+    .filter((item) =>
+      canAccessPath(
+        user,
+        item.href,
+        roleStatePermissions.hasWorkOrdersAccess
+      )
+    )
     .sort((left, right) => {
       if (left.href === defaultPath) {
         return -1

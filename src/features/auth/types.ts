@@ -4,6 +4,7 @@ export type RoleCode =
   | "JEFE_TALLER"
   | "RECEPCION"
   | "REPUESTOS"
+  | "CONTROL_CALIDAD"
   | "CLIENTE"
   | "DEP_ENDEREZADA"
   | "DEP_REPARACION_PINTURA"

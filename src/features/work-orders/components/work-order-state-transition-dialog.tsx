@@ -17,6 +17,7 @@ import {
   OPERATIONAL_ESTADO_PROCESO_CODES,
 } from "@/features/estados-proceso/constants"
 import type { EstadoProceso } from "@/features/estados-proceso/types"
+import { useAuth } from "@/features/auth/auth-context"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
 import {
   findCurrentProcessState,
@@ -78,13 +79,21 @@ function getTargetHint(targetState: EstadoProceso) {
     return "Agendamiento con cliente"
   }
 
+  if (code === ESTADO_PROCESO_CODES.AUTO_INGRESADO) {
+    return "Vehiculo recibido en el taller"
+  }
+
+  if (code === ESTADO_PROCESO_CODES.ENTREGAR_AUTO) {
+    return "Entrega del vehiculo al cliente"
+  }
+
   if (code === ESTADO_PROCESO_CODES.FINALIZADO) {
     return "Entrega y cierre"
   }
 
   const workshopLeadTargetCodes = new Set<string>(OPERATIONAL_ESTADO_PROCESO_CODES)
 
-  if (workshopLeadTargetCodes.has(code)) {
+  if (targetState.es_bahia || workshopLeadTargetCodes.has(code)) {
     return "Bahia operativa"
   }
 
@@ -100,6 +109,14 @@ function getTargetLabel(targetState: EstadoProceso) {
 
   if (code === ESTADO_PROCESO_CODES.PROGRAMAR_CITA) {
     return "Programar cita"
+  }
+
+  if (code === ESTADO_PROCESO_CODES.AUTO_INGRESADO) {
+    return "Auto Ingresado"
+  }
+
+  if (code === ESTADO_PROCESO_CODES.ENTREGAR_AUTO) {
+    return "Entregar Auto"
   }
 
   if (code === ESTADO_PROCESO_CODES.FINALIZADO) {
@@ -124,6 +141,7 @@ export function WorkOrderStateTransitionDialog({
   onOrderUpdated,
   onError,
 }: WorkOrderStateTransitionDialogProps) {
+  const { sessionScope } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
@@ -164,14 +182,40 @@ export function WorkOrderStateTransitionDialog({
     onError?.(null)
 
     try {
+      const targetSubState = targetState.es_bahia ? "Pendiente" : null
       const updatedOrder = await workOrdersService.moveWorkOrderToProcessState({
         orden_id: order.id,
         estado_actual_id: targetState.id,
-        sub_estado_actual: targetState.es_bahia ? "Pendiente" : null,
+        sub_estado_actual: targetSubState,
       })
+      const orderCompanyId =
+        updatedOrder.empresa_id ?? order.empresa_id ?? sessionScope.empresa_id
+      const orderBranchId =
+        updatedOrder.sucursal_id ?? order.sucursal_id ?? sessionScope.sucursal_id
+      let historyWarning: string | null = null
+
+      if (orderCompanyId && orderBranchId && sessionScope.user_id) {
+        try {
+          await workOrdersService.createWorkOrderStateHistory({
+            empresa_id: orderCompanyId,
+            sucursal_id: orderBranchId,
+            orden_id: order.id,
+            estado_id: targetState.id,
+            sub_estado: targetSubState,
+            registrado_por_usuario_id: sessionScope.user_id,
+          })
+        } catch {
+          historyWarning =
+            "El estado se actualizó, pero no fue posible registrar el historial del flujo."
+        }
+      } else {
+        historyWarning =
+          "El estado se actualizó, pero no fue posible registrar el historial del flujo."
+      }
 
       onOrderUpdated?.(updatedOrder)
       setIsOpen(false)
+      onError?.(historyWarning)
     } catch (error) {
       const message = getErrorMessage(error)
 

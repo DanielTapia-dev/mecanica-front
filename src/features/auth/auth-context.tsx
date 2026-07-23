@@ -10,6 +10,11 @@ import {
 } from "react"
 import { isAuthUser } from "./auth-validation"
 import { getDefaultPathForUser } from "./permissions"
+import {
+  createEmptyUserRoleStatePermissions,
+  loadUserRoleStatePermissions,
+  type UserRoleStatePermissions,
+} from "./role-state-permissions"
 import { buildAuthSessionScope } from "./session-scope"
 import type { AuthSessionScope, AuthUser } from "./types"
 import {
@@ -30,13 +35,42 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<LoginResult>
   logout: () => void
   isLoading: boolean
+  roleStatePermissions: UserRoleStatePermissions
+  roleStateAccessError: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function getRoleStateAccessError(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "No fue posible cargar los modulos habilitados para los roles del usuario."
+}
+
+async function resolveRoleStatePermissions(user: AuthUser) {
+  try {
+    return {
+      permissions: await loadUserRoleStatePermissions(user),
+      error: null,
+    }
+  } catch (error) {
+    return {
+      permissions: createEmptyUserRoleStatePermissions(),
+      error: getRoleStateAccessError(error),
+    }
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [roleStatePermissions, setRoleStatePermissions] =
+    useState<UserRoleStatePermissions>(() =>
+      createEmptyUserRoleStatePermissions()
+    )
+  const [roleStateAccessError, setRoleStateAccessError] = useState<string | null>(
+    null
+  )
   const sessionScope = useMemo(() => buildAuthSessionScope(user), [user])
 
   useEffect(() => {
@@ -58,7 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const payload = (await response.json()) as { user?: unknown }
 
           if (isAuthUser(payload.user)) {
+            const roleStateAccess = await resolveRoleStatePermissions(payload.user)
+
+            if (!isMounted) {
+              return
+            }
+
             resetUnauthorizedSessionNotification()
+            setRoleStatePermissions(roleStateAccess.permissions)
+            setRoleStateAccessError(roleStateAccess.error)
             setUser(payload.user)
           }
         }
@@ -79,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function handleUnauthorizedSession() {
       setUser(null)
+      setRoleStatePermissions(createEmptyUserRoleStatePermissions())
+      setRoleStateAccessError(null)
       clearLegacyAuthStorage()
       void fetch("/api/auth/logout", {
         method: "POST",
@@ -118,13 +162,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      const roleStateAccess = await resolveRoleStatePermissions(payload.user)
+
       resetUnauthorizedSessionNotification()
+      setRoleStatePermissions(roleStateAccess.permissions)
+      setRoleStateAccessError(roleStateAccess.error)
       setUser(payload.user)
       clearLegacyAuthStorage()
 
       return {
         success: true,
-        redirectTo: getDefaultPathForUser(payload.user) ?? undefined,
+        redirectTo:
+          getDefaultPathForUser(
+            payload.user,
+            roleStateAccess.permissions.hasWorkOrdersAccess
+          ) ?? undefined,
       }
     } catch {
       return {
@@ -136,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null)
+    setRoleStatePermissions(createEmptyUserRoleStatePermissions())
+    setRoleStateAccessError(null)
     clearLegacyAuthStorage()
     void fetch("/api/auth/logout", {
       method: "POST",
@@ -143,7 +197,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, sessionScope, login, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        sessionScope,
+        login,
+        logout,
+        isLoading,
+        roleStatePermissions,
+        roleStateAccessError,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

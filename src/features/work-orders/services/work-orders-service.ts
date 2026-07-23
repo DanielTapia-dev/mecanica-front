@@ -22,6 +22,7 @@ import type {
   VehicleListFilters,
   VehicleSummary,
   WorkOrder,
+  WorkOrderStateHistory,
   WorkOrderListFilters,
   WorkOrderListItem,
 } from "../types"
@@ -55,6 +56,8 @@ export const workOrderApiPaths = {
   workOrder: (orderId: EntityId) => `${API_BASE_PATH}/orden-trabajo/${orderId}`,
   createWorkOrder: `${API_BASE_PATH}/orden-trabajo`,
   workOrderStateHistory: `${API_BASE_PATH}/orden-estado-historial`,
+  workOrderStateHistoryByOrder: (orderId: EntityId) =>
+    `${API_BASE_PATH}/orden/${orderId}/orden-estado-historial`,
   assignDepartment: (orderId: EntityId) =>
     `${API_BASE_PATH}/ordenes-trabajo/${orderId}/departamento`,
   registerProgress: (orderId: EntityId) =>
@@ -169,6 +172,15 @@ function getListData<T>(payload: unknown) {
     payload.work_orders,
     payload.solicitudes,
     payload.departamentos,
+    payload.historial,
+    payload.historiales,
+    payload.orden_estado_historial,
+    payload.orden_estados_historial,
+    payload.ordenEstadoHistorial,
+    payload.ordenEstadoHistoriales,
+    payload.historial_estados,
+    payload.historialEstados,
+    payload.registros,
     dataRecord?.data,
     dataRecord?.rows,
     dataRecord?.items,
@@ -183,6 +195,15 @@ function getListData<T>(payload: unknown) {
     dataRecord?.orders,
     dataRecord?.workOrders,
     dataRecord?.work_orders,
+    dataRecord?.historial,
+    dataRecord?.historiales,
+    dataRecord?.orden_estado_historial,
+    dataRecord?.orden_estados_historial,
+    dataRecord?.ordenEstadoHistorial,
+    dataRecord?.ordenEstadoHistoriales,
+    dataRecord?.historial_estados,
+    dataRecord?.historialEstados,
+    dataRecord?.registros,
   ]
 
   const list = candidates.find(Array.isArray)
@@ -307,6 +328,144 @@ function normalizeProcessState(payload: unknown) {
     id,
     codigo: readString(payload, ["codigo", "estado_codigo", "estadoCodigo"]),
     nombre: readString(payload, ["nombre", "estado_nombre", "estadoNombre"]),
+  }
+}
+
+function normalizeWorkOrderStateHistory(
+  payload: unknown,
+  fallbackOrderId?: EntityId
+): WorkOrderStateHistory | undefined {
+  if (!isRecord(payload)) {
+    return undefined
+  }
+
+  const rawState =
+    payload.estado ??
+    payload.estado_proceso ??
+    payload.estadoProceso ??
+    payload.estado_actual ??
+    payload.estadoActual
+  const state = normalizeProcessState(rawState)
+  const orderId =
+    readString(payload, ["orden_id", "ordenId"]) ?? fallbackOrderId
+  const stateId =
+    readString(payload, [
+      "estado_id",
+      "estadoId",
+      "estado_proceso_id",
+      "estadoProcesoId",
+    ]) ?? state?.id
+  const createdAt =
+    readString(payload, [
+      "fecha_registro",
+      "fechaRegistro",
+      "registrado_en",
+      "registradoEn",
+      "fecha",
+      "fecha_cambio",
+      "fechaCambio",
+      "fecha_creacion",
+      "fechaCreacion",
+      "creado_en",
+      "creadoEn",
+      "created_at",
+      "createdAt",
+    ]) ?? null
+  const id =
+    readString(payload, ["id", "historial_id", "historialId"]) ??
+    (orderId && stateId
+      ? `${orderId}:${stateId}:${createdAt ?? "sin-fecha"}`
+      : undefined)
+
+  if (!id || !orderId || !stateId) {
+    return undefined
+  }
+
+  const rawRegisteredBy =
+    payload.registrado_por ??
+    payload.registradoPor ??
+    payload.registrado_por_usuario ??
+    payload.registradoPorUsuario ??
+    payload.usuario_registro ??
+    payload.usuarioRegistro ??
+    payload.usuario ??
+    payload.user
+  const registeredById = readString(payload, [
+    "registrado_por_usuario_id",
+    "registradoPorUsuarioId",
+    "usuario_id",
+    "usuarioId",
+  ])
+  const flatRegisteredBy = {
+    id: registeredById,
+    nombre: readString(payload, [
+      "registrado_por",
+      "registradoPor",
+      "registrado_por_nombre",
+      "registradoPorNombre",
+    ]),
+    apellido:
+      readString(payload, [
+        "registrado_por_apellido",
+        "registradoPorApellido",
+      ]) ?? null,
+    email:
+      readString(payload, [
+        "registrado_por_email",
+        "registradoPorEmail",
+        "usuario_email",
+        "usuarioEmail",
+      ]) ?? null,
+  }
+  const registeredBy = isRecord(rawRegisteredBy)
+    ? {
+        id: readString(rawRegisteredBy, ["id", "usuario_id", "usuarioId"]),
+        nombre: readString(rawRegisteredBy, ["nombre", "name", "nombres"]),
+        apellido:
+          readString(rawRegisteredBy, ["apellido", "lastName", "apellidos"]) ?? null,
+        email:
+          readString(rawRegisteredBy, ["email", "correo", "correo_electronico"]) ??
+          null,
+      }
+    : Object.values(flatRegisteredBy).some(Boolean)
+      ? flatRegisteredBy
+      : null
+
+  return {
+    ...(payload as unknown as WorkOrderStateHistory),
+    id,
+    empresa_id: readString(payload, ["empresa_id", "empresaId"]) ?? null,
+    sucursal_id: readString(payload, ["sucursal_id", "sucursalId"]) ?? null,
+    orden_id: orderId,
+    estado_id: stateId,
+    sub_estado:
+      readString(payload, ["sub_estado", "subEstado", "sub_estado_actual"]) ?? null,
+    registrado_por_usuario_id:
+      registeredById ?? registeredBy?.id ?? null,
+    fecha_registro: createdAt,
+    creado_en:
+      readString(payload, ["creado_en", "creadoEn", "created_at", "createdAt"]) ??
+      undefined,
+    actualizado_en:
+      readString(payload, [
+        "actualizado_en",
+        "actualizadoEn",
+        "updated_at",
+        "updatedAt",
+      ]) ?? undefined,
+    estado: state
+      ? {
+          ...state,
+          es_bahia: isRecord(rawState)
+            ? readBoolean(rawState, ["es_bahia", "esBahia"])
+            : undefined,
+        }
+      : {
+          id: stateId,
+          codigo: readString(payload, ["estado_codigo", "estadoCodigo"]),
+          nombre: readString(payload, ["estado_nombre", "estadoNombre"]),
+        },
+    registrado_por: registeredBy,
   }
 }
 
@@ -862,6 +1021,20 @@ export const workOrdersService = {
       method: "POST",
       body: input,
     })
+  },
+
+  async listWorkOrderStateHistory(
+    orderId: EntityId,
+    options?: WorkOrdersRequestOptions
+  ): Promise<WorkOrderStateHistory[]> {
+    const payload = await requestWorkOrdersApi<unknown>(
+      workOrderApiPaths.workOrderStateHistoryByOrder(orderId),
+      options
+    )
+
+    return getListData<unknown>(payload)
+      .map((item) => normalizeWorkOrderStateHistory(item, orderId))
+      .filter((item): item is WorkOrderStateHistory => Boolean(item))
   },
 
   moveWorkOrderToProcessState(

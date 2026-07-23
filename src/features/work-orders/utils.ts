@@ -253,15 +253,7 @@ export function getFinalizeAction(): WorkOrderPrimaryAction {
   return {
     id: "finalize-work-order",
     label: "Finalizar/despachar vehiculo",
-    allowedRoles: [
-    "ADMIN",
-    "ASESOR",
-    "DEP_ENDEREZADA",
-      "DEP_REPARACION_PINTURA",
-      "DEP_ENSAMBLAJE",
-      "DEP_MECANICA",
-      "DEP_LAVADO_CALIDAD",
-    ],
+    allowedRoles: ["ASESOR"],
     disabled: false,
   }
 }

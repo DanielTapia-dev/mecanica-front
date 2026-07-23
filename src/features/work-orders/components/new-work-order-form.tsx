@@ -46,12 +46,6 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "No fue posible crear la orden."
 }
 
-function optionalText(value: string) {
-  const normalizedValue = value.trim()
-
-  return normalizedValue || undefined
-}
-
 export function NewWorkOrderForm() {
   const router = useRouter()
   const { sessionScope } = useAuth()
@@ -64,7 +58,9 @@ export function NewWorkOrderForm() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const isVehicleComplete = Boolean(vehicleForm.placa.trim())
+  const isFormComplete =
+    Object.values(vehicleForm).every((value) => Boolean(value.trim())) &&
+    orderForm.aseguradora_id !== NO_CATALOG_OPTION_VALUE
 
   useEffect(() => {
     let isMounted = true
@@ -81,22 +77,29 @@ export function NewWorkOrderForm() {
       setCatalogError(null)
 
       try {
-        const [brokersList, aseguradorasList] = await Promise.all([
+        const [brokersResult, aseguradorasResult] = await Promise.allSettled([
           brokersService.listBrokersByEmpresa(sessionScope.empresa_id),
           aseguradorasService.listAseguradorasByEmpresa(sessionScope.empresa_id),
         ])
 
         if (isMounted) {
-          setBrokers(brokersList.filter((broker) => broker.activo))
-          setAseguradoras(
-            aseguradorasList.filter((aseguradora) => aseguradora.activo)
+          setBrokers(
+            brokersResult.status === "fulfilled"
+              ? brokersResult.value.filter((broker) => broker.activo)
+              : []
           )
-        }
-      } catch (error) {
-        if (isMounted) {
-          setBrokers([])
-          setAseguradoras([])
-          setCatalogError(getErrorMessage(error))
+          setAseguradoras(
+            aseguradorasResult.status === "fulfilled"
+              ? aseguradorasResult.value.filter((aseguradora) => aseguradora.activo)
+              : []
+          )
+          setCatalogError(
+            aseguradorasResult.status === "rejected"
+              ? "No fue posible cargar las aseguradoras. Este campo es obligatorio; recarga la pagina para intentarlo nuevamente."
+              : brokersResult.status === "rejected"
+                ? "No fue posible cargar los brokers. Puedes continuar porque Broker es opcional."
+                : null
+          )
         }
       } finally {
         if (isMounted) {
@@ -130,8 +133,10 @@ export function NewWorkOrderForm() {
     event.preventDefault()
     setSubmitError(null)
 
-    if (!isVehicleComplete) {
-      setSubmitError("Completa la placa.")
+    if (!isFormComplete) {
+      setSubmitError(
+        "Completa todos los campos obligatorios. Solo Broker es opcional."
+      )
       return
     }
 
@@ -146,16 +151,13 @@ export function NewWorkOrderForm() {
 
     try {
       const placa = vehicleForm.placa.trim().toUpperCase()
-      const clienteNombre = optionalText(vehicleForm.cliente_nombre)
-      const clienteCedula = optionalText(vehicleForm.cliente_cedula)
-      const marca = optionalText(vehicleForm.marca)
-      const modelo = optionalText(vehicleForm.modelo)
+      const clienteNombre = vehicleForm.cliente_nombre.trim()
+      const clienteCedula = vehicleForm.cliente_cedula.trim()
+      const marca = vehicleForm.marca.trim()
+      const modelo = vehicleForm.modelo.trim()
       const brokerId =
         orderForm.broker_id === NO_CATALOG_OPTION_VALUE ? null : orderForm.broker_id
-      const aseguradoraId =
-        orderForm.aseguradora_id === NO_CATALOG_OPTION_VALUE
-          ? null
-          : orderForm.aseguradora_id
+      const aseguradoraId = orderForm.aseguradora_id
       const existingVehicle = await workOrdersService.findVehicleByPlate(placa)
 
       const vehicle =
@@ -165,10 +167,10 @@ export function NewWorkOrderForm() {
             empresa_id: sessionScope.empresa_id,
             sucursal_id: sessionScope.sucursal_id,
             placa,
-            ...(clienteNombre ? { cliente_nombre: clienteNombre } : {}),
-            ...(clienteCedula ? { cliente_cedula: clienteCedula } : {}),
-            ...(marca ? { marca } : {}),
-            ...(modelo ? { modelo } : {}),
+            cliente_nombre: clienteNombre,
+            cliente_cedula: clienteCedula,
+            marca,
+            modelo,
           }
         )
 
@@ -204,7 +206,7 @@ export function NewWorkOrderForm() {
             Datos del vehiculo
           </CardTitle>
           <CardDescription>
-            Ingresa la placa para buscar o crear el vehiculo. Los demas datos son opcionales.
+            Completa todos los datos del cliente y del vehiculo.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -221,42 +223,46 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="cliente_nombre">Nombre del cliente (opcional)</Label>
+            <Label htmlFor="cliente_nombre">Nombre del cliente</Label>
             <Input
               id="cliente_nombre"
               value={vehicleForm.cliente_nombre}
               onChange={(event) => updateVehicleField("cliente_nombre", event.target.value)}
               placeholder="Cliente Prueba"
+              required
             />
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="cliente_cedula">Cedula del cliente (opcional)</Label>
+            <Label htmlFor="cliente_cedula">Cedula del cliente</Label>
             <Input
               id="cliente_cedula"
               value={vehicleForm.cliente_cedula}
               onChange={(event) => updateVehicleField("cliente_cedula", event.target.value)}
               placeholder="9999999999"
+              required
             />
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="marca">Marca (opcional)</Label>
+            <Label htmlFor="marca">Marca</Label>
             <Input
               id="marca"
               value={vehicleForm.marca}
               onChange={(event) => updateVehicleField("marca", event.target.value)}
               placeholder="Toyota"
+              required
             />
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="modelo">Modelo (opcional)</Label>
+            <Label htmlFor="modelo">Modelo</Label>
             <Input
               id="modelo"
               value={vehicleForm.modelo}
               onChange={(event) => updateVehicleField("modelo", event.target.value)}
               placeholder="Corolla"
+              required
             />
           </div>
         </CardContent>
@@ -269,7 +275,7 @@ export function NewWorkOrderForm() {
             Datos de la orden
           </CardTitle>
           <CardDescription>
-            Broker y aseguradora son opcionales y se envian como ID.
+            La aseguradora es obligatoria. Solo Broker es opcional.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -302,8 +308,9 @@ export function NewWorkOrderForm() {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="aseguradora">Aseguradora (opcional)</Label>
+            <Label htmlFor="aseguradora">Aseguradora</Label>
             <Select
+              required
               value={orderForm.aseguradora_id}
               onValueChange={(value) =>
                 updateOrderField("aseguradora_id", value ?? NO_CATALOG_OPTION_VALUE)
@@ -312,6 +319,7 @@ export function NewWorkOrderForm() {
               <SelectTrigger
                 id="aseguradora"
                 className="w-full bg-input border-border"
+                aria-required="true"
               >
                 <SelectValue
                   placeholder={
@@ -340,7 +348,7 @@ export function NewWorkOrderForm() {
       {catalogError && (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
           <AlertCircle className="size-4" />
-          No fue posible cargar broker o aseguradora. Puedes continuar sin esos datos.
+          {catalogError}
         </div>
       )}
 
@@ -355,7 +363,7 @@ export function NewWorkOrderForm() {
         <Button
           type="submit"
           size="lg"
-          disabled={isSubmitting || !isVehicleComplete}
+          disabled={isSubmitting || !isFormComplete}
         >
           {isSubmitting && <Loader2 className="size-4 animate-spin" />}
           Crear orden

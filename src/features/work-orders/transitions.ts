@@ -1,4 +1,4 @@
-import { hasAnyRole } from "@/features/auth/permissions"
+import { hasAnyRole, hasExplicitRole } from "@/features/auth/permissions"
 import type { AuthUser, RoleCode } from "@/features/auth/types"
 import {
   ESTADO_PROCESO_CODES,
@@ -35,12 +35,28 @@ function normalizeProcessStateCode(value?: string | null) {
   return value?.trim().toUpperCase() ?? ""
 }
 
+function getActiveBayStateCodes(processStates: EstadoProceso[]) {
+  return processStates
+    .filter((state) => state.activo && state.es_bahia)
+    .map((state) => normalizeProcessStateCode(state.codigo))
+    .filter(Boolean)
+}
+
+function excludeRestrictedOperationalTargets(stateCodes: string[]) {
+  return stateCodes.filter(
+    (stateCode) =>
+      stateCode !== ESTADO_PROCESO_CODES.AUTO_INGRESADO &&
+      stateCode !== ESTADO_PROCESO_CODES.ENTREGAR_AUTO
+  )
+}
+
 function buildTransitionConfig({
   currentState,
   sourceCode,
   targetCodes,
   allowedRoles,
   unavailableMessage,
+  allowAdmin = true,
   user,
 }: {
   currentState?: EstadoProceso
@@ -48,6 +64,7 @@ function buildTransitionConfig({
   targetCodes: readonly string[]
   allowedRoles: readonly RoleCode[]
   unavailableMessage: string
+  allowAdmin?: boolean
   user: AuthUser | null | undefined
 }): WorkOrderProcessTransitionConfig {
   return {
@@ -55,7 +72,9 @@ function buildTransitionConfig({
     currentStateCode: sourceCode,
     allowedSourceStateCodes: [sourceCode],
     allowedTargetStateCodes: [...targetCodes],
-    canTransition: hasAnyRole(user, allowedRoles),
+    canTransition: allowAdmin
+      ? hasAnyRole(user, allowedRoles)
+      : hasExplicitRole(user, allowedRoles),
     unavailableMessage,
   }
 }
@@ -67,6 +86,9 @@ export function getWorkOrderProcessTransitionConfig(
 ): WorkOrderProcessTransitionConfig {
   const currentState = findCurrentProcessState(order, processStates)
   const currentStateCode = normalizeProcessStateCode(currentState?.codigo)
+  const activeBayStateCodes = getActiveBayStateCodes(processStates)
+  const generallyAssignableBayStateCodes =
+    excludeRestrictedOperationalTargets(activeBayStateCodes)
 
   if (currentStateCode === ESTADO_PROCESO_CODES.ASESOR) {
     return buildTransitionConfig({
@@ -109,21 +131,69 @@ export function getWorkOrderProcessTransitionConfig(
       currentState,
       sourceCode: ESTADO_PROCESO_CODES.PROGRAMAR_CITA,
       targetCodes: SCHEDULE_APPOINTMENT_TARGET_ESTADO_PROCESO_CODES,
-      allowedRoles: ["JEFE_TALLER"],
+      allowedRoles: ["ASESOR"],
       unavailableMessage:
-        "Esta orden solo se puede enviar desde Programar cita hacia una bahia.",
+        "Esta orden solo se puede enviar desde Programar cita hacia Auto Ingresado.",
       user,
     })
   }
 
-  if (operationalStateCodeSet.has(currentStateCode)) {
+  if (currentStateCode === ESTADO_PROCESO_CODES.AUTO_INGRESADO) {
+    return buildTransitionConfig({
+      currentState,
+      sourceCode: ESTADO_PROCESO_CODES.AUTO_INGRESADO,
+      targetCodes: generallyAssignableBayStateCodes,
+      allowedRoles: ["JEFE_TALLER"],
+      unavailableMessage:
+        "Esta orden solo se puede asignar desde Auto Ingresado hacia una bahia activa.",
+      user,
+    })
+  }
+
+  if (currentStateCode === ESTADO_PROCESO_CODES.CONTROL_CALIDAD) {
+    return buildTransitionConfig({
+      currentState,
+      sourceCode: ESTADO_PROCESO_CODES.CONTROL_CALIDAD,
+      targetCodes: [
+        ...new Set([
+          ...generallyAssignableBayStateCodes,
+          ESTADO_PROCESO_CODES.ENTREGAR_AUTO,
+        ]),
+      ],
+      allowedRoles: ["CONTROL_CALIDAD", "DEP_LAVADO_CALIDAD"],
+      unavailableMessage:
+        "Solo Control de Calidad puede enviar esta orden a Entregar Auto.",
+      allowAdmin: false,
+      user,
+    })
+  }
+
+  if (currentStateCode === ESTADO_PROCESO_CODES.ENTREGAR_AUTO) {
+    return buildTransitionConfig({
+      currentState,
+      sourceCode: ESTADO_PROCESO_CODES.ENTREGAR_AUTO,
+      targetCodes: [ESTADO_PROCESO_CODES.FINALIZADO],
+      allowedRoles: ["ASESOR"],
+      unavailableMessage:
+        "Solo el Asesor puede finalizar por completo esta orden de trabajo.",
+      allowAdmin: false,
+      user,
+    })
+  }
+
+  if (currentState?.es_bahia || operationalStateCodeSet.has(currentStateCode)) {
     return buildTransitionConfig({
       currentState,
       sourceCode: currentStateCode,
-      targetCodes: OPERATIONAL_TARGET_ESTADO_PROCESO_CODES,
+      targetCodes: [
+        ...new Set([
+          ...generallyAssignableBayStateCodes,
+          ...OPERATIONAL_TARGET_ESTADO_PROCESO_CODES,
+        ]),
+      ],
       allowedRoles: operationalRoleCodes,
       unavailableMessage:
-        "Esta orden se puede enviar a otra bahia o marcar como Finalizado.",
+        "Esta orden se puede enviar a otra bahia operativa.",
       user,
     })
   }

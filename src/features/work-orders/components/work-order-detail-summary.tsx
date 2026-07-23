@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import {
   AlertCircle,
@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/features/auth/auth-context"
 import { hasAnyRole, hasExplicitRole } from "@/features/auth/permissions"
 import type { EstadoProceso } from "@/features/estados-proceso/types"
+import { WorkOrderFlowTimeline } from "@/features/work-orders/components/work-order-flow-timeline"
 import { WorkOrderStateTransitionDialog } from "@/features/work-orders/components/work-order-state-transition-dialog"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
 import {
@@ -23,7 +24,11 @@ import {
   loadProcessStateAccess,
 } from "@/features/work-orders/state-access"
 import { getWorkOrderProcessTransitionConfig } from "@/features/work-orders/transitions"
-import type { EntityId, WorkOrder } from "@/features/work-orders/types"
+import type {
+  EntityId,
+  WorkOrder,
+  WorkOrderStateHistory,
+} from "@/features/work-orders/types"
 import {
   getCustomerDisplayName,
   getVehicleDisplayName,
@@ -49,15 +54,22 @@ function formatDate(value?: string | null) {
     return "Sin fecha"
   }
 
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return "Sin fecha"
+  }
+
   return new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(value))
+  }).format(date)
 }
 
 export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps) {
-  const { user } = useAuth()
+  const { user, roleStatePermissions } = useAuth()
   const [order, setOrder] = useState<WorkOrder | null>(null)
+  const [stateHistory, setStateHistory] = useState<WorkOrderStateHistory[]>([])
   const [processStates, setProcessStates] = useState<EstadoProceso[]>([])
   const [allowedProcessStateIds, setAllowedProcessStateIds] = useState<Set<string>>(
     () => new Set()
@@ -65,12 +77,44 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [stateAccessError, setStateAccessError] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingStateAccess, setIsLoadingStateAccess] = useState(true)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const historyRequestVersionRef = useRef(0)
   const canOpenNewOrder = hasAnyRole(user, ["ASESOR", "RECEPCION"])
   const newOrderHref = hasExplicitRole(user, ["ASESOR"])
     ? "/departamentos/asesor/nueva-orden"
     : "/ordenes/nueva"
+
+  const refreshStateHistory = useCallback(async () => {
+    const requestVersion = ++historyRequestVersionRef.current
+
+    setIsLoadingHistory(true)
+    setHistoryError(null)
+
+    try {
+      const result = await workOrdersService.listWorkOrderStateHistory(orderId)
+
+      if (requestVersion === historyRequestVersionRef.current) {
+        setStateHistory(result)
+      }
+    } catch (loadError) {
+      if (requestVersion === historyRequestVersionRef.current) {
+        setStateHistory([])
+        setHistoryError(
+          getErrorMessage(
+            loadError,
+            "No fue posible cargar el historial guardado de la orden."
+          )
+        )
+      }
+    } finally {
+      if (requestVersion === historyRequestVersionRef.current) {
+        setIsLoadingHistory(false)
+      }
+    }
+  }, [orderId])
 
   useEffect(() => {
     let isMounted = true
@@ -106,6 +150,60 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
 
   useEffect(() => {
     let isMounted = true
+    const requestVersion = ++historyRequestVersionRef.current
+
+    async function loadStateHistory() {
+      if (
+        isMounted &&
+        requestVersion === historyRequestVersionRef.current
+      ) {
+        setIsLoadingHistory(true)
+        setHistoryError(null)
+      }
+
+      try {
+        const result = await workOrdersService.listWorkOrderStateHistory(orderId)
+
+        if (
+          isMounted &&
+          requestVersion === historyRequestVersionRef.current
+        ) {
+          setStateHistory(result)
+          setHistoryError(null)
+        }
+      } catch (loadError) {
+        if (
+          isMounted &&
+          requestVersion === historyRequestVersionRef.current
+        ) {
+          setStateHistory([])
+          setHistoryError(
+            getErrorMessage(
+              loadError,
+              "No fue posible cargar el historial guardado de la orden."
+            )
+          )
+        }
+      } finally {
+        if (
+          isMounted &&
+          requestVersion === historyRequestVersionRef.current
+        ) {
+          setIsLoadingHistory(false)
+        }
+      }
+    }
+
+    void loadStateHistory()
+
+    return () => {
+      isMounted = false
+      historyRequestVersionRef.current += 1
+    }
+  }, [orderId])
+
+  useEffect(() => {
+    let isMounted = true
 
     async function loadStateAccess() {
       if (!user) {
@@ -120,7 +218,11 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
       setStateAccessError(null)
 
       try {
-        const stateAccess = await loadProcessStateAccess(user)
+        const stateAccess = await loadProcessStateAccess(
+          user,
+          undefined,
+          roleStatePermissions.allowedProcessStateIds
+        )
 
         if (isMounted) {
           setProcessStates(stateAccess.processStates)
@@ -144,7 +246,7 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
     return () => {
       isMounted = false
     }
-  }, [user])
+  }, [roleStatePermissions.allowedProcessStateIds, user])
 
   if (isLoading) {
     return (
@@ -183,7 +285,6 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
   }
 
   const primaryAction = getWorkOrderPrimaryAction(order)
-  const isAdmin = hasAnyRole(user, ["ADMIN"])
   const transitionConfig = getWorkOrderProcessTransitionConfig(
     order,
     processStates,
@@ -195,14 +296,15 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
     allowedTargetStateCodes: transitionConfig.allowedTargetStateCodes,
   })
   const hasActionRole = hasAnyRole(user, primaryAction.allowedRoles)
-  const hasStateAccess =
-    isAdmin || Boolean(currentProcessState && allowedProcessStateIds.has(currentProcessState.id))
+  const hasStateAccess = Boolean(
+    currentProcessState && allowedProcessStateIds.has(currentProcessState.id)
+  )
   const actionBlockReason =
     primaryAction.reason ??
     (isLoadingStateAccess ? "Validando estados habilitados para tu rol." : undefined) ??
     stateAccessError ??
     (!hasActionRole ? "Tu rol no tiene habilitada esta funcion." : undefined) ??
-    (!isAdmin && !currentProcessState
+    (!currentProcessState
       ? "No se encontro un estado de proceso que coincida con la etapa actual de la orden."
       : undefined) ??
     (!hasStateAccess
@@ -211,7 +313,7 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
   const transitionBlockReason =
     (isLoadingStateAccess ? "Validando estados habilitados para tu rol." : undefined) ??
     stateAccessError ??
-    (!isAdmin && !currentProcessState
+    (!currentProcessState
       ? "No se encontro un estado de proceso que coincida con la etapa actual de la orden."
       : undefined) ??
     (!hasStateAccess
@@ -308,7 +410,10 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
               customerName={customerName}
               unavailableMessage={transitionConfig.unavailableMessage}
               onError={setActionError}
-              onOrderUpdated={setOrder}
+              onOrderUpdated={(updatedOrder) => {
+                setOrder(updatedOrder)
+                void refreshStateHistory()
+              }}
               trigger={({ isSubmitting }) => (
                 <Button
                   type="button"
@@ -382,6 +487,14 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
         </Card>
       </div>
 
+      <WorkOrderFlowTimeline
+        order={order}
+        history={stateHistory}
+        processStates={processStates}
+        currentProcessState={currentProcessState}
+        isLoading={isLoadingHistory}
+        error={historyError}
+      />
     </div>
   )
 }

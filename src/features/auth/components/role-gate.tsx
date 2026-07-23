@@ -27,15 +27,18 @@ export function RoleGate({
 }: RoleGateProps) {
   const router = useRouter()
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, roleStatePermissions, roleStateAccessError } = useAuth()
 
   const hasRoleAccess = allowAdmin
     ? hasAnyRole(user, allowedRoles)
     : hasExplicitRole(user, allowedRoles)
   const hasAccess = requireWorkOrdersAccess
-    ? canAccessWorkOrders(user)
+    ? canAccessWorkOrders(user, roleStatePermissions.hasWorkOrdersAccess)
     : hasRoleAccess
-  const redirectTo = getDefaultPathForUser(user)
+  const redirectTo = getDefaultPathForUser(
+    user,
+    roleStatePermissions.hasWorkOrdersAccess
+  )
 
   useEffect(() => {
     if (!user || hasAccess || !redirectTo || redirectTo === pathname) {
@@ -55,7 +58,13 @@ export function RoleGate({
 
   if (!redirectTo || redirectTo === pathname) {
     return (
-      <AccessDenied description="Tu usuario inicio sesion correctamente, pero el rol asignado no tiene una ruta inicial valida para esta pantalla." />
+      <AccessDenied
+        description={
+          requireWorkOrdersAccess && roleStateAccessError
+            ? roleStateAccessError
+            : "Tu usuario inicio sesion correctamente, pero sus roles no tienen una relacion habilitada para abrir este modulo."
+        }
+      />
     )
   }
 

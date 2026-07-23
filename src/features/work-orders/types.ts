@@ -164,6 +164,31 @@ export interface WorkOrderDepartmentHistory {
   actualizado_en?: IsoDateString
 }
 
+export interface WorkOrderStateHistory {
+  id: EntityId
+  empresa_id?: EntityId | null
+  sucursal_id?: EntityId | null
+  orden_id: EntityId
+  estado_id: EntityId
+  sub_estado?: WorkOrderSubStateValue | null
+  registrado_por_usuario_id?: EntityId | null
+  fecha_registro?: IsoDateString | null
+  creado_en?: IsoDateString
+  actualizado_en?: IsoDateString
+  estado?: {
+    id?: EntityId
+    codigo?: EstadoProcesoCode | string
+    nombre?: string
+    es_bahia?: boolean
+  } | null
+  registrado_por?: {
+    id?: EntityId
+    nombre?: string
+    apellido?: string | null
+    email?: string | null
+  } | null
+}
+
 export interface WorkOrderComment {
   id: EntityId
   orden_id: EntityId
@@ -323,12 +348,12 @@ export interface CreateVehicleInput {
   empresa_id: EntityId
   sucursal_id: EntityId
   cliente_id?: EntityId | null
-  cliente_nombre?: string | null
-  cliente_cedula?: string | null
+  cliente_nombre: string
+  cliente_cedula: string
   placa: string
   vin?: string | null
-  marca?: string | null
-  modelo?: string | null
+  marca: string
+  modelo: string
   anio?: number | null
   color?: string | null
   kilometraje?: number | null
@@ -346,7 +371,7 @@ export interface CreateWorkOrderInput {
   vehiculo_id: EntityId
   creado_por_usuario_id: EntityId
   estado_actual_id?: EntityId | null
-  aseguradora_id?: EntityId | null
+  aseguradora_id: EntityId
   broker_id?: EntityId | null
   sub_estado_actual?: WorkOrderSubStateValue | null
   encuesta_realizada?: boolean
