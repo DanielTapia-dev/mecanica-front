@@ -6,6 +6,7 @@ export interface Empresa {
   direccion: string | null
   telefono: string | null
   email: string | null
+  logobase64: string | null
   activo: boolean
   creado_en: string
   actualizado_en: string
@@ -18,5 +19,6 @@ export interface EmpresaInput {
   direccion?: string
   telefono?: string
   email?: string
+  logobase64?: string | null
   activo: boolean
 }
