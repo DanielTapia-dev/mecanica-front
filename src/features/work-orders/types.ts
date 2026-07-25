@@ -298,6 +298,7 @@ export type WorkOrderListItem = Pick<
   | "motivo_ingreso"
   | "fecha_creacion"
   | "fecha_finalizacion"
+  | "creado_por_usuario_id"
   | "creado_en"
   | "actualizado_en"
   | "cliente"

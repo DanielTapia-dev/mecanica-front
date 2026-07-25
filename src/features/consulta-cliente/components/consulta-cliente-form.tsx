@@ -128,13 +128,7 @@ export function ConsultaClienteForm() {
       {resultados && resultados.length > 0 && registroInfo ? (
         <div className="space-y-4">
           <Card>
-            <CardContent className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs text-muted-foreground">Orden</p>
-                <p className="text-base font-semibold text-foreground">
-                  {registroInfo.orden_codigo}
-                </p>
-              </div>
+            <CardContent className="flex items-center justify-end gap-2">
               <div className="text-right">
                 <p className="text-xs text-muted-foreground">Placa</p>
                 <p className="text-base font-semibold text-foreground">

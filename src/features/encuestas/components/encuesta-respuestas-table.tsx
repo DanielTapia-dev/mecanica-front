@@ -28,6 +28,7 @@ import {
   encuestasService,
 } from "@/features/encuestas/services/encuestas-service"
 import type { EncuestaRespuesta } from "@/features/encuestas/types"
+import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof EncuestasServiceError ? error.message : fallback
@@ -45,9 +46,20 @@ function calcularPromedio(respuesta: EncuestaRespuesta) {
   return (suma / items.length).toFixed(1)
 }
 
-export function EncuestaRespuestasTable() {
+function getPromedioBadgeClass(promedio: string) {
+  return Number(promedio) < 3
+    ? "bg-red-600 text-white"
+    : "bg-emerald-500/20 text-emerald-400"
+}
+
+interface EncuestaRespuestasTableProps {
+  soloPropias?: boolean
+}
+
+export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespuestasTableProps) {
   const { sessionScope } = useAuth()
   const empresaId = sessionScope.empresa_id
+  const usuarioId = sessionScope.user_id
 
   const [respuestas, setRespuestas] = useState<EncuestaRespuesta[]>([])
   const [search, setSearch] = useState("")
@@ -65,12 +77,24 @@ export function EncuestaRespuestasTable() {
 
     try {
       const data = await encuestasService.listRespuestasByEmpresa(empresaId)
-      setRespuestas(data)
+
+      if (soloPropias && usuarioId) {
+        const ordenes = await workOrdersService.listWorkOrders({ empresa_id: empresaId })
+        const propiasOrdenIds = new Set(
+          ordenes.data
+            .filter((orden) => String(orden.creado_por_usuario_id ?? "") === String(usuarioId))
+            .map((orden) => String(orden.id))
+        )
+        setRespuestas(data.filter((respuesta) => propiasOrdenIds.has(String(respuesta.orden_id))))
+      } else {
+        setRespuestas(data)
+      }
+
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar las respuestas de encuesta."))
     }
-  }, [empresaId])
+  }, [empresaId, soloPropias, usuarioId])
 
   useEffect(() => {
     let isMounted = true
@@ -145,49 +169,60 @@ export function EncuestaRespuestasTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRespuestas.map((respuesta) => (
-                  <TableRow key={respuesta.id} className="border-border hover:bg-muted/50">
-                    <TableCell className="font-medium text-foreground">{respuesta.placa}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatFecha(respuesta.fecha_respuesta)}
-                    </TableCell>
-                    <TableCell>
-                      {calcularPromedio(respuesta) ? (
-                        <Badge className="bg-emerald-500/20 text-emerald-400">
-                          {calcularPromedio(respuesta)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className="max-w-sm whitespace-normal text-sm text-muted-foreground"
-                      title={respuesta.comentario_general ?? undefined}
-                    >
-                      <span className="line-clamp-2">{respuesta.comentario_general || "-"}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setViewingRespuesta(respuesta)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => setDeletingRespuesta(respuesta)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredRespuestas.map((respuesta) => {
+                  const promedio = calcularPromedio(respuesta)
+                  const esBajo = promedio !== null && Number(promedio) < 3
+
+                  return (
+                    <TableRow key={respuesta.id} className="border-border hover:bg-muted/50">
+                      <TableCell
+                        className={esBajo ? "font-medium text-red-600" : "font-medium text-foreground"}
+                      >
+                        {respuesta.placa}
+                      </TableCell>
+                      <TableCell className={esBajo ? "text-red-600" : "text-muted-foreground"}>
+                        {formatFecha(respuesta.fecha_respuesta)}
+                      </TableCell>
+                      <TableCell>
+                        {promedio ? (
+                          <Badge className={getPromedioBadgeClass(promedio)}>{promedio}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={
+                          esBajo
+                            ? "max-w-sm whitespace-normal text-sm text-red-600"
+                            : "max-w-sm whitespace-normal text-sm text-muted-foreground"
+                        }
+                        title={respuesta.comentario_general ?? undefined}
+                      >
+                        <span className="line-clamp-2">{respuesta.comentario_general || "-"}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setViewingRespuesta(respuesta)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => setDeletingRespuesta(respuesta)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
                 {filteredRespuestas.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
