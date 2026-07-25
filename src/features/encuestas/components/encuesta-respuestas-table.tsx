@@ -21,14 +21,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Eye, Loader2, Search, Trash2 } from "lucide-react"
+import { Eye, FileDown, Loader2, Search, Trash2 } from "lucide-react"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   EncuestasServiceError,
   encuestasService,
 } from "@/features/encuestas/services/encuestas-service"
 import type { EncuestaRespuesta } from "@/features/encuestas/types"
+import { generateEncuestaPdf } from "@/features/encuestas/lib/generate-encuesta-pdf"
 import { workOrdersService } from "@/features/work-orders/services/work-orders-service"
+import { usersService } from "@/features/users/services/users-service"
+import { fetchEmpresa } from "@/features/empresas/services/empresas-service"
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof EncuestasServiceError ? error.message : fallback
@@ -71,6 +74,9 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
   const [deletingRespuesta, setDeletingRespuesta] = useState<EncuestaRespuesta | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState<string | null>(null)
 
   const loadRespuestas = useCallback(async () => {
     if (!empresaId) return
@@ -132,6 +138,46 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
     }
   }
 
+  const handleGenerarPdf = async (respuesta: EncuestaRespuesta) => {
+    setGeneratingPdfId(respuesta.id)
+    setPdfError(null)
+
+    try {
+      const orden = await workOrdersService.getWorkOrder(respuesta.orden_id)
+      const [empresa, asesor] = await Promise.all([
+        fetchEmpresa(respuesta.empresa_id).catch(() => null),
+        orden.creado_por_usuario_id
+          ? usersService.getUsuario(orden.creado_por_usuario_id).catch(() => null)
+          : Promise.resolve(null),
+      ])
+
+      const clienteNombre =
+        [orden.cliente?.nombre, orden.cliente?.apellido].filter(Boolean).join(" ") || "-"
+      const asesorNombre = asesor
+        ? [asesor.nombre, asesor.apellido].filter(Boolean).join(" ") || "-"
+        : "-"
+
+      const doc = generateEncuestaPdf({
+        empresaLogoBase64: empresa?.logobase64 ?? null,
+        clienteNombre,
+        asesorNombre,
+        placa: respuesta.placa,
+        aseguradora: orden.aseguradora || "-",
+        preguntas: (respuesta.items ?? []).map((item) => ({
+          texto: item.pregunta?.texto_pregunta ?? "Pregunta",
+          calificacion: item.calificacion,
+        })),
+        comentarioGeneral: respuesta.comentario_general,
+      })
+
+      doc.save(`encuesta-satisfaccion-${respuesta.placa || respuesta.id}.pdf`)
+    } catch (error) {
+      setPdfError(getErrorMessage(error, "No fue posible generar el PDF de la encuesta."))
+    } finally {
+      setGeneratingPdfId(null)
+    }
+  }
+
   return (
     <Card className="bg-card border-border">
       <CardHeader>
@@ -150,6 +196,7 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
       </CardHeader>
       <CardContent>
         {loadError && <p className="mb-4 text-sm text-destructive">{loadError}</p>}
+        {pdfError && <p className="mb-4 text-sm text-destructive">{pdfError}</p>}
 
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
@@ -209,6 +256,20 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
                             onClick={() => setViewingRespuesta(respuesta)}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Generar PDF"
+                            disabled={generatingPdfId === respuesta.id}
+                            onClick={() => handleGenerarPdf(respuesta)}
+                          >
+                            {generatingPdfId === respuesta.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileDown className="h-4 w-4" />
+                            )}
                           </Button>
                           <Button
                             variant="ghost"
