@@ -270,7 +270,8 @@ export function WorkOrdersList() {
     [focusedProcessStates]
   )
   const focusedStateCode = focusedStateCodes[0] ?? null
-  const shouldUseFocusedStateView = Boolean(user)
+  const isAdmin = hasExplicitRole(user, ["ADMIN"])
+  const shouldUseFocusedStateView = Boolean(user) && !isAdmin
   const showProcessStateStats =
     shouldUseFocusedStateView && focusedProcessStates.length > 0
   const scopeEmpresaId = sessionScope.empresa_id
@@ -412,15 +413,25 @@ export function WorkOrdersList() {
     }
   }, [roleStatePermissions.allowedProcessStateIds, user])
 
-  const accessibleOrders =
-    !isLoadingStateAccess && !stateAccessError
+  const accessibleOrders = isAdmin
+    ? orders
+    : !isLoadingStateAccess && !stateAccessError
       ? orders.filter((order) =>
           canAccessCurrentProcessState(user, order, stateAccess)
         )
       : []
+  const isAsesorOnly =
+    hasExplicitRole(user, ["ASESOR"]) && !hasExplicitRole(user, ["ADMIN"])
+  const ownOrders =
+    isAsesorOnly && sessionScope.user_id
+      ? accessibleOrders.filter(
+          (order) =>
+            String(order.creado_por_usuario_id ?? "") === String(sessionScope.user_id)
+        )
+      : accessibleOrders
   const visibleOrders = query.trim()
-    ? filterWorkOrders(accessibleOrders, { query: query.trim() })
-    : accessibleOrders
+    ? filterWorkOrders(ownOrders, { query: query.trim() })
+    : ownOrders
   const isPageLoading = isLoading || isLoadingStateAccess
   const canOpenNewOrder = hasAnyRole(user, ["ASESOR", "RECEPCION"])
   const newOrderHref = hasExplicitRole(user, ["ASESOR"])
@@ -475,7 +486,7 @@ export function WorkOrdersList() {
 
       {showProcessStateStats && focusedProcessStateName && (
         <ProcessStateStats
-          orders={accessibleOrders}
+          orders={ownOrders}
           stateName={focusedProcessStateName}
           visual={processVisual}
         />
@@ -535,7 +546,9 @@ export function WorkOrdersList() {
               <div>
                 <p className="font-medium text-foreground">Sin ordenes para mostrar</p>
                 <p className="text-sm text-muted-foreground">
-                  No hay ordenes en los estados habilitados para tu rol.
+                  {isAsesorOnly
+                    ? "No hay ordenes creadas por ti en los estados habilitados para tu rol."
+                    : "No hay ordenes en los estados habilitados para tu rol."}
                 </p>
               </div>
             </div>
