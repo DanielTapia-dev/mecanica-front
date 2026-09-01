@@ -387,7 +387,8 @@ export function WorkOrdersList() {
         const result = await loadProcessStateAccess(
           user,
           undefined,
-          roleStatePermissions.allowedProcessStateIds
+          roleStatePermissions.allowedProcessStateIds,
+          scopeSucursalId
         )
 
         if (isMounted) {
@@ -413,7 +414,7 @@ export function WorkOrdersList() {
     return () => {
       isMounted = false
     }
-  }, [roleStatePermissions.allowedProcessStateIds, user])
+  }, [roleStatePermissions.allowedProcessStateIds, user, scopeSucursalId])
 
   const accessibleOrders = isAdmin
     ? orders

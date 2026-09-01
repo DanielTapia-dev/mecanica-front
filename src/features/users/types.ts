@@ -18,6 +18,7 @@ export interface Usuario {
   nombre: string
   apellido: string
   email: string
+  username: string | null
   telefono: string | null
   activo: boolean
   creado_en: string
@@ -31,6 +32,7 @@ export interface CreateUsuarioInput {
   nombre: string
   apellido: string
   email: string
+  username: string
   password: string
   telefono?: string
 }
@@ -41,6 +43,7 @@ export interface UpdateUsuarioInput {
   nombre?: string
   apellido?: string
   email?: string
+  username?: string
   telefono?: string
   password?: string
 }

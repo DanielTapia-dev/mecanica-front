@@ -107,7 +107,7 @@ export function getWorkOrderProcessTransitionConfig(
       currentState,
       sourceCode: ESTADO_PROCESO_CODES.JEFE_TALLER,
       targetCodes: WORKSHOP_LEAD_TARGET_ESTADO_PROCESO_CODES,
-      allowedRoles: ["JEFE_TALLER"],
+      allowedRoles: ["JEFE_TALLER", "ASESOR"],
       unavailableMessage:
         "Esta orden solo se puede enviar desde Jefe de Taller hacia Programar cita, Repuestos o una bahia.",
       user,
@@ -119,7 +119,7 @@ export function getWorkOrderProcessTransitionConfig(
       currentState,
       sourceCode: ESTADO_PROCESO_CODES.REPUESTOS,
       targetCodes: SPARE_PARTS_TARGET_ESTADO_PROCESO_CODES,
-      allowedRoles: ["REPUESTOS", "JEFE_TALLER"],
+      allowedRoles: ["REPUESTOS", "JEFE_TALLER", "ASESOR"],
       unavailableMessage:
         "Esta orden solo se puede enviar desde Solicitud de Repuestos hacia Programar cita o una bahia.",
       user,
@@ -143,7 +143,7 @@ export function getWorkOrderProcessTransitionConfig(
       currentState,
       sourceCode: ESTADO_PROCESO_CODES.AUTO_INGRESADO,
       targetCodes: generallyAssignableBayStateCodes,
-      allowedRoles: ["JEFE_TALLER"],
+      allowedRoles: ["JEFE_TALLER", "ASESOR"],
       unavailableMessage:
         "Esta orden solo se puede asignar desde Auto Ingresado hacia una bahia activa.",
       user,

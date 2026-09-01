@@ -71,6 +71,7 @@ function readCreateUsuarioInput(
     nombre: (formData.get("nombre") as string).trim(),
     apellido: (formData.get("apellido") as string).trim(),
     email: (formData.get("email") as string).trim(),
+    username: (formData.get("username") as string).trim(),
     password: formData.get("password") as string,
     telefono: (formData.get("telefono") as string)?.trim() || undefined,
   }
@@ -80,11 +81,11 @@ function readUpdateUsuarioInput(formData: FormData): UpdateUsuarioInput {
   const password = (formData.get("password") as string).trim()
 
   return {
-    sucursal_id: formData.get("sucursal_id") as string,
     rol_id: formData.get("rol_id") as string,
     nombre: (formData.get("nombre") as string).trim(),
     apellido: (formData.get("apellido") as string).trim(),
     email: (formData.get("email") as string).trim(),
+    username: (formData.get("username") as string)?.trim() || undefined,
     telefono: (formData.get("telefono") as string)?.trim() || undefined,
     ...(password ? { password } : {}),
   }
@@ -162,7 +163,8 @@ export function UsersTable() {
     (usuario) =>
       usuario.nombre.toLowerCase().includes(search.toLowerCase()) ||
       usuario.apellido.toLowerCase().includes(search.toLowerCase()) ||
-      usuario.email.toLowerCase().includes(search.toLowerCase())
+      usuario.email.toLowerCase().includes(search.toLowerCase()) ||
+      (usuario.username ?? "").toLowerCase().includes(search.toLowerCase())
   )
 
   const handleAddUsuario = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -273,9 +275,21 @@ export function UsersTable() {
                         <Input id="apellido" name="apellido" required className="bg-input border-border" />
                       </div>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Correo electrónico</Label>
-                      <Input id="email" name="email" type="email" required className="bg-input border-border" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="username">Nombre de usuario</Label>
+                        <Input
+                          id="username"
+                          name="username"
+                          required
+                          autoComplete="off"
+                          className="bg-input border-border"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="email">Correo electrónico</Label>
+                        <Input id="email" name="email" type="email" required className="bg-input border-border" />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
@@ -374,7 +388,9 @@ export function UsersTable() {
                             <p className="font-medium text-foreground">
                               {usuario.nombre} {usuario.apellido}
                             </p>
-                            <p className="text-sm text-muted-foreground">{usuario.email}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {usuario.username ? `@${usuario.username}` : usuario.email}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
@@ -490,16 +506,29 @@ export function UsersTable() {
                     />
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-email">Correo electrónico</Label>
-                  <Input
-                    id="edit-email"
-                    name="email"
-                    type="email"
-                    defaultValue={editingUsuario.email}
-                    required
-                    className="bg-input border-border"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-username">Nombre de usuario</Label>
+                    <Input
+                      id="edit-username"
+                      name="username"
+                      defaultValue={editingUsuario.username ?? ""}
+                      required
+                      autoComplete="off"
+                      className="bg-input border-border"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-email">Correo electrónico</Label>
+                    <Input
+                      id="edit-email"
+                      name="email"
+                      type="email"
+                      defaultValue={editingUsuario.email}
+                      required
+                      className="bg-input border-border"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
@@ -525,26 +554,10 @@ export function UsersTable() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="edit-sucursal_id">Sucursal</Label>
-                    <Select name="sucursal_id" defaultValue={editingUsuario.sucursal_id} required>
-                      <SelectTrigger className="bg-input border-border">
-                        <SelectValue placeholder="Selecciona una sucursal">
-                          {(value: string) => getSucursalById(value)?.nombre ?? value}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sucursales
-                          .filter(
-                            (sucursal) =>
-                              sucursal.activo || sucursal.id === editingUsuario.sucursal_id
-                          )
-                          .map((sucursal) => (
-                            <SelectItem key={sucursal.id} value={sucursal.id}>
-                              {sucursal.nombre}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Sucursal</Label>
+                    <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                      {getSucursalById(editingUsuario.sucursal_id)?.nombre ?? "Sucursal actual"}
+                    </p>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="edit-rol_id">Rol</Label>

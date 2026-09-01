@@ -65,7 +65,7 @@ function readCreateEstadoProcesoInput(
     mensaje_cliente_default: (formData.get("mensaje_cliente_default") as string).trim(),
     permite_comentario_cliente: false,
     es_final: false,
-    orden_visual: 0,
+    orden_visual: Number(formData.get("orden_visual")) || 0,
     activo: formData.get("activo") === "activo",
   }
 }
@@ -75,6 +75,7 @@ function readUpdateEstadoProcesoInput(formData: FormData): UpdateEstadoProcesoIn
     codigo: (formData.get("codigo") as string).trim().toUpperCase(),
     nombre: (formData.get("nombre") as string).trim(),
     mensaje_cliente_default: (formData.get("mensaje_cliente_default") as string).trim(),
+    orden_visual: Number(formData.get("orden_visual")) || 0,
     activo: formData.get("activo") === "activo",
   }
 }
@@ -137,11 +138,13 @@ export function EstadosProcesoTable() {
     }
   }, [loadEstados])
 
-  const filteredEstados = estados.filter(
-    (estado) =>
-      estado.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      estado.codigo.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredEstados = estados
+    .filter(
+      (estado) =>
+        estado.nombre.toLowerCase().includes(search.toLowerCase()) ||
+        estado.codigo.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((left, right) => left.orden_visual - right.orden_visual)
 
   const handleAddEstado = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -274,17 +277,29 @@ export function EstadosProcesoTable() {
                         className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
                       />
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="activo">Estado</Label>
-                      <Select name="activo" defaultValue="activo">
-                        <SelectTrigger className="bg-input border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="activo">Activo</SelectItem>
-                          <SelectItem value="inactivo">Inactivo</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="orden_visual">Orden visual</Label>
+                        <Input
+                          id="orden_visual"
+                          name="orden_visual"
+                          type="number"
+                          defaultValue={0}
+                          className="bg-input border-border"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="activo">Estado</Label>
+                        <Select name="activo" defaultValue="activo">
+                          <SelectTrigger className="bg-input border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="activo">Activo</SelectItem>
+                            <SelectItem value="inactivo">Inactivo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     {addError && <p className="text-sm text-destructive">{addError}</p>}
                   </div>
@@ -315,6 +330,7 @@ export function EstadosProcesoTable() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-muted/50">
+                  <TableHead className="text-muted-foreground w-[1%]">Orden</TableHead>
                   <TableHead className="text-muted-foreground">Código</TableHead>
                   <TableHead className="text-muted-foreground">Nombre</TableHead>
                   <TableHead className="text-muted-foreground">Mensaje al cliente</TableHead>
@@ -325,6 +341,7 @@ export function EstadosProcesoTable() {
               <TableBody>
                 {filteredEstados.map((estado) => (
                   <TableRow key={estado.id} className="border-border hover:bg-muted/50">
+                    <TableCell className="text-muted-foreground">{estado.orden_visual}</TableCell>
                     <TableCell className="font-medium text-foreground">{estado.codigo}</TableCell>
                     <TableCell className="text-foreground">{estado.nombre}</TableCell>
                     <TableCell
@@ -370,7 +387,7 @@ export function EstadosProcesoTable() {
                 ))}
                 {filteredEstados.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No se encontraron estados de proceso.
                     </TableCell>
                   </TableRow>
@@ -434,17 +451,29 @@ export function EstadosProcesoTable() {
                     className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-activo">Estado</Label>
-                  <Select name="activo" defaultValue={editingEstado.activo ? "activo" : "inactivo"}>
-                    <SelectTrigger className="bg-input border-border">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="activo">Activo</SelectItem>
-                      <SelectItem value="inactivo">Inactivo</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-orden_visual">Orden visual</Label>
+                    <Input
+                      id="edit-orden_visual"
+                      name="orden_visual"
+                      type="number"
+                      defaultValue={editingEstado.orden_visual}
+                      className="bg-input border-border"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-activo">Estado</Label>
+                    <Select name="activo" defaultValue={editingEstado.activo ? "activo" : "inactivo"}>
+                      <SelectTrigger className="bg-input border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="activo">Activo</SelectItem>
+                        <SelectItem value="inactivo">Inactivo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 {editError && <p className="text-sm text-destructive">{editError}</p>}
               </div>

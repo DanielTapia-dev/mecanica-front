@@ -67,7 +67,7 @@ function formatDate(value?: string | null) {
 }
 
 export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps) {
-  const { user, roleStatePermissions } = useAuth()
+  const { user, sessionScope, roleStatePermissions } = useAuth()
   const [order, setOrder] = useState<WorkOrder | null>(null)
   const [stateHistory, setStateHistory] = useState<WorkOrderStateHistory[]>([])
   const [processStates, setProcessStates] = useState<EstadoProceso[]>([])
@@ -221,7 +221,8 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
         const stateAccess = await loadProcessStateAccess(
           user,
           undefined,
-          roleStatePermissions.allowedProcessStateIds
+          roleStatePermissions.allowedProcessStateIds,
+          sessionScope.sucursal_id
         )
 
         if (isMounted) {
@@ -246,7 +247,7 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
     return () => {
       isMounted = false
     }
-  }, [roleStatePermissions.allowedProcessStateIds, user])
+  }, [roleStatePermissions.allowedProcessStateIds, user, sessionScope.sucursal_id])
 
   if (isLoading) {
     return (
