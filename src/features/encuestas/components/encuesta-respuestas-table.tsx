@@ -80,6 +80,7 @@ interface EncuestaRespuestasTableProps {
 export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespuestasTableProps) {
   const { user, sessionScope } = useAuth()
   const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
   const usuarioId = sessionScope.user_id
   const isAdmin = hasAnyRole(user, ["ADMIN"])
 
@@ -145,10 +146,10 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
   }, [])
 
   const loadRespuestas = useCallback(async () => {
-    if (!empresaId) return
+    if (!empresaId || !sucursalId) return
 
     try {
-      const data = await encuestasService.listRespuestasByEmpresa(empresaId)
+      const data = await encuestasService.listRespuestasByEmpresaSucursal(empresaId, sucursalId)
       let finalRespuestas = data
 
       if (soloPropias && usuarioId) {
@@ -172,7 +173,7 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar las respuestas de encuesta."))
     }
-  }, [empresaId, soloPropias, usuarioId, isAdmin, loadAsesores])
+  }, [empresaId, sucursalId, soloPropias, usuarioId, isAdmin, loadAsesores])
 
   useEffect(() => {
     let isMounted = true

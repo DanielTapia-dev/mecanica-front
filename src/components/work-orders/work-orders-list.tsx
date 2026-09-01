@@ -325,11 +325,13 @@ export function WorkOrdersList() {
             ],
           }
         : await workOrdersService.listWorkOrders(
-            scopeSucursalId
-              ? { sucursal_id: scopeSucursalId }
-              : scopeEmpresaId
-                ? { empresa_id: scopeEmpresaId }
-                : undefined
+            scopeEmpresaId && scopeSucursalId
+              ? { empresa_id: scopeEmpresaId, sucursal_id: scopeSucursalId }
+              : scopeSucursalId
+                ? { sucursal_id: scopeSucursalId }
+                : scopeEmpresaId
+                  ? { empresa_id: scopeEmpresaId }
+                  : undefined
           )
       const scopedOrders = shouldUseFocusedStateView
         ? getScopedOrders(result.data, {
