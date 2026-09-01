@@ -39,6 +39,7 @@ import {
   getUserRoleLabel,
 } from "@/features/auth/permissions"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
+import { SucursalSwitcher } from "@/features/auth/components/sucursal-switcher"
 
 const navItems = [
   { href: "/empresas", label: "Empresas", icon: Building2 },
@@ -55,7 +56,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { user, logout, roleStatePermissions } = useAuth()
+  const { user, logout, roleStatePermissions, sessionScope } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const defaultPath = getDefaultPathForUser(
     user,
@@ -114,20 +115,23 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex h-16 items-center gap-2 border-b border-border px-6">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-              <Wrench className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <div className="min-w-0 truncate">
-              <p className="truncate text-sm font-semibold text-foreground">
-                {user?.empresaNombre ?? "AutoTaller Pro"}
-              </p>
-              {user?.sucursalNombre && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {user.sucursalNombre}
+          <div className="flex flex-col gap-2 border-b border-border px-6 py-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
+                <Wrench className="h-4 w-4 text-primary-foreground" />
+              </div>
+              <div className="min-w-0 truncate">
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {user?.empresaNombre ?? "AutoTaller Pro"}
                 </p>
-              )}
+                {(sessionScope.sucursal_nombre ?? user?.sucursalNombre) && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {sessionScope.sucursal_nombre ?? user?.sucursalNombre}
+                  </p>
+                )}
+              </div>
             </div>
+            <SucursalSwitcher />
           </div>
 
           <nav className="flex-1 space-y-1 p-4">

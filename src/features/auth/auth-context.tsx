@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react"
 import { isAuthUser } from "./auth-validation"
-import { getDefaultPathForUser } from "./permissions"
+import { getDefaultPathForUser, hasAnyRole } from "./permissions"
 import {
   createEmptyUserRoleStatePermissions,
   loadUserRoleStatePermissions,
@@ -29,6 +29,11 @@ interface LoginResult {
   redirectTo?: string
 }
 
+interface ActiveSucursal {
+  id: string
+  nombre?: string
+}
+
 interface AuthContextType {
   user: AuthUser | null
   sessionScope: AuthSessionScope
@@ -37,6 +42,8 @@ interface AuthContextType {
   isLoading: boolean
   roleStatePermissions: UserRoleStatePermissions
   roleStateAccessError: string | null
+  canSwitchSucursal: boolean
+  switchSucursal: (sucursalId: string, sucursalNombre?: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -71,7 +78,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleStateAccessError, setRoleStateAccessError] = useState<string | null>(
     null
   )
-  const sessionScope = useMemo(() => buildAuthSessionScope(user), [user])
+  const [activeSucursal, setActiveSucursal] = useState<ActiveSucursal | null>(null)
+  const baseSessionScope = useMemo(() => buildAuthSessionScope(user), [user])
+  const canSwitchSucursal = hasAnyRole(user, ["ADMIN"])
+  const sessionScope = useMemo<AuthSessionScope>(() => {
+    if (!activeSucursal) {
+      return baseSessionScope
+    }
+
+    return {
+      ...baseSessionScope,
+      sucursal_id: activeSucursal.id,
+      sucursal_nombre: activeSucursal.nombre ?? baseSessionScope.sucursal_nombre,
+    }
+  }, [baseSessionScope, activeSucursal])
+
+  const switchSucursal = (sucursalId: string, sucursalNombre?: string) => {
+    if (!canSwitchSucursal) {
+      return
+    }
+
+    setActiveSucursal({ id: sucursalId, nombre: sucursalNombre })
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -101,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             resetUnauthorizedSessionNotification()
             setRoleStatePermissions(roleStateAccess.permissions)
             setRoleStateAccessError(roleStateAccess.error)
+            setActiveSucursal(null)
             setUser(payload.user)
           }
         }
@@ -123,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       setRoleStatePermissions(createEmptyUserRoleStatePermissions())
       setRoleStateAccessError(null)
+      setActiveSucursal(null)
       clearLegacyAuthStorage()
       void fetch("/api/auth/logout", {
         method: "POST",
@@ -167,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetUnauthorizedSessionNotification()
       setRoleStatePermissions(roleStateAccess.permissions)
       setRoleStateAccessError(roleStateAccess.error)
+      setActiveSucursal(null)
       setUser(payload.user)
       clearLegacyAuthStorage()
 
@@ -190,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setRoleStatePermissions(createEmptyUserRoleStatePermissions())
     setRoleStateAccessError(null)
+    setActiveSucursal(null)
     clearLegacyAuthStorage()
     void fetch("/api/auth/logout", {
       method: "POST",
@@ -206,6 +238,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         roleStatePermissions,
         roleStateAccessError,
+        canSwitchSucursal,
+        switchSucursal,
       }}
     >
       {children}

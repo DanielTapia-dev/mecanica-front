@@ -36,6 +36,7 @@ export interface CreateUsuarioInput {
 }
 
 export interface UpdateUsuarioInput {
+  sucursal_id?: string
   rol_id?: string
   nombre?: string
   apellido?: string

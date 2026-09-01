@@ -46,6 +46,8 @@ import {
 import type { CreateUsuarioInput, UpdateUsuarioInput, Usuario } from "@/features/users/types"
 import { rolesService } from "@/features/roles/services/roles-service"
 import type { Role } from "@/features/roles/types"
+import { fetchSucursales } from "@/features/sucursales/services/sucursales-service"
+import type { Sucursal } from "@/features/sucursales/types"
 
 const TIPO_ROL_LABELS: Record<string, string> = {
   SISTEMA: "Sistema",
@@ -78,6 +80,7 @@ function readUpdateUsuarioInput(formData: FormData): UpdateUsuarioInput {
   const password = (formData.get("password") as string).trim()
 
   return {
+    sucursal_id: formData.get("sucursal_id") as string,
     rol_id: formData.get("rol_id") as string,
     nombre: (formData.get("nombre") as string).trim(),
     apellido: (formData.get("apellido") as string).trim(),
@@ -94,6 +97,7 @@ export function UsersTable() {
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
   const [roles, setRoles] = useState<Role[]>([])
+  const [sucursales, setSucursales] = useState<Sucursal[]>([])
   const [search, setSearch] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -111,21 +115,30 @@ export function UsersTable() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const loadUsuarios = useCallback(async () => {
+    if (!sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
+      return
+    }
+
     try {
-      const [usuariosList, rolesList] = await Promise.all([
-        usersService.listUsuarios(),
+      const [usuariosList, rolesList, sucursalesResponse] = await Promise.all([
+        usersService.listUsuariosBySucursal(sucursalId),
         rolesService.listRoles(),
+        fetchSucursales(),
       ])
 
       setUsuarios(usuariosList)
       setRoles(rolesList)
+      setSucursales(sucursalesResponse.sucursales)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los usuarios."))
     }
-  }, [])
+  }, [sucursalId])
 
   const getRoleById = (rolId: string) => roles.find((role) => role.id === rolId)
+  const getSucursalById = (sucursalId: string) =>
+    sucursales.find((sucursal) => sucursal.id === sucursalId)
 
   useEffect(() => {
     let isMounted = true
@@ -156,7 +169,7 @@ export function UsersTable() {
     e.preventDefault()
 
     if (!empresaId || !sucursalId) {
-      setAddError("No se pudo determinar la empresa del usuario actual.")
+      setAddError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
 
@@ -282,6 +295,12 @@ export function UsersTable() {
                       </div>
                     </div>
                     <div className="grid gap-2">
+                      <Label>Sucursal</Label>
+                      <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                        {(sucursalId && getSucursalById(sucursalId)?.nombre) ?? "Sucursal actual"}
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
                       <Label htmlFor="rol_id">Rol</Label>
                       <Select name="rol_id" required>
                         <SelectTrigger className="bg-input border-border">
@@ -330,6 +349,7 @@ export function UsersTable() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-muted/50">
                   <TableHead className="text-muted-foreground">Usuario</TableHead>
+                  <TableHead className="text-muted-foreground">Sucursal</TableHead>
                   <TableHead className="text-muted-foreground">Rol</TableHead>
                   <TableHead className="text-muted-foreground">Teléfono</TableHead>
                   <TableHead className="text-muted-foreground">Estado</TableHead>
@@ -339,6 +359,7 @@ export function UsersTable() {
               <TableBody>
                 {filteredUsuarios.map((usuario) => {
                   const rolActual = getRoleById(usuario.rol_id)
+                  const sucursalActual = getSucursalById(usuario.sucursal_id)
 
                   return (
                     <TableRow key={usuario.id} className="border-border hover:bg-muted/50">
@@ -356,6 +377,9 @@ export function UsersTable() {
                             <p className="text-sm text-muted-foreground">{usuario.email}</p>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-foreground">
+                        {sucursalActual?.nombre ?? "Sin sucursal"}
                       </TableCell>
                       <TableCell className="text-foreground">
                         {rolActual ? (
@@ -413,7 +437,7 @@ export function UsersTable() {
                 })}
                 {filteredUsuarios.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No se encontraron usuarios.
                     </TableCell>
                   </TableRow>
@@ -499,24 +523,48 @@ export function UsersTable() {
                     />
                   </div>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-rol_id">Rol</Label>
-                  <Select name="rol_id" defaultValue={editingUsuario.rol_id} required>
-                    <SelectTrigger className="bg-input border-border">
-                      <SelectValue placeholder="Selecciona un rol">
-                        {(value: string) => getRoleById(value)?.nombre ?? value}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles
-                        .filter((role) => role.activo || role.id === editingUsuario.rol_id)
-                        .map((role) => (
-                          <SelectItem key={role.id} value={role.id}>
-                            {role.nombre}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-sucursal_id">Sucursal</Label>
+                    <Select name="sucursal_id" defaultValue={editingUsuario.sucursal_id} required>
+                      <SelectTrigger className="bg-input border-border">
+                        <SelectValue placeholder="Selecciona una sucursal">
+                          {(value: string) => getSucursalById(value)?.nombre ?? value}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sucursales
+                          .filter(
+                            (sucursal) =>
+                              sucursal.activo || sucursal.id === editingUsuario.sucursal_id
+                          )
+                          .map((sucursal) => (
+                            <SelectItem key={sucursal.id} value={sucursal.id}>
+                              {sucursal.nombre}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-rol_id">Rol</Label>
+                    <Select name="rol_id" defaultValue={editingUsuario.rol_id} required>
+                      <SelectTrigger className="bg-input border-border">
+                        <SelectValue placeholder="Selecciona un rol">
+                          {(value: string) => getRoleById(value)?.nombre ?? value}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles
+                          .filter((role) => role.activo || role.id === editingUsuario.rol_id)
+                          .map((role) => (
+                            <SelectItem key={role.id} value={role.id}>
+                              {role.nombre}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 {editError && <p className="text-sm text-destructive">{editError}</p>}
               </div>
