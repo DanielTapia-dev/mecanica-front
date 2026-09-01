@@ -3,6 +3,7 @@ import type { EstadoProcesoCode } from "./constants"
 export interface EstadoProceso {
   id: string
   empresa_id: string
+  sucursal_id: string
   codigo: EstadoProcesoCode | string
   nombre: string
   mensaje_cliente_default: string
@@ -17,6 +18,7 @@ export interface EstadoProceso {
 
 export interface CreateEstadoProcesoInput {
   empresa_id: string
+  sucursal_id: string
   codigo: string
   nombre: string
   mensaje_cliente_default: string

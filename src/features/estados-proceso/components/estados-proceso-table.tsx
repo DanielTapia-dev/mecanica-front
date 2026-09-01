@@ -54,10 +54,12 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function readCreateEstadoProcesoInput(
   formData: FormData,
-  empresaId: string
+  empresaId: string,
+  sucursalId: string
 ): CreateEstadoProcesoInput {
   return {
     empresa_id: empresaId,
+    sucursal_id: sucursalId,
     codigo: (formData.get("codigo") as string).trim().toUpperCase(),
     nombre: (formData.get("nombre") as string).trim(),
     mensaje_cliente_default: (formData.get("mensaje_cliente_default") as string).trim(),
@@ -80,6 +82,7 @@ function readUpdateEstadoProcesoInput(formData: FormData): UpdateEstadoProcesoIn
 export function EstadosProcesoTable() {
   const { sessionScope } = useAuth()
   const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
 
   const [estados, setEstados] = useState<EstadoProceso[]>([])
   const [search, setSearch] = useState("")
@@ -99,14 +102,22 @@ export function EstadosProcesoTable() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const loadEstados = useCallback(async () => {
+    if (!empresaId || !sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
+      return
+    }
+
     try {
-      const data = await estadosProcesoService.listEstadosProceso()
+      const data = await estadosProcesoService.listEstadosProcesoByEmpresaSucursal(
+        empresaId,
+        sucursalId
+      )
       setEstados(data)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los estados de proceso."))
     }
-  }, [])
+  }, [empresaId, sucursalId])
 
   useEffect(() => {
     let isMounted = true
@@ -135,8 +146,8 @@ export function EstadosProcesoTable() {
   const handleAddEstado = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    if (!empresaId) {
-      setAddError("No se pudo determinar la empresa del usuario actual.")
+    if (!empresaId || !sucursalId) {
+      setAddError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
 
@@ -146,7 +157,7 @@ export function EstadosProcesoTable() {
 
     try {
       await estadosProcesoService.createEstadoProceso(
-        readCreateEstadoProcesoInput(formData, empresaId)
+        readCreateEstadoProcesoInput(formData, empresaId, sucursalId)
       )
       await loadEstados()
       setIsAddOpen(false)

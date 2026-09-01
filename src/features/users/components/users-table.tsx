@@ -115,7 +115,7 @@ export function UsersTable() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const loadUsuarios = useCallback(async () => {
-    if (!sucursalId) {
+    if (!empresaId || !sucursalId) {
       setLoadError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
@@ -123,7 +123,7 @@ export function UsersTable() {
     try {
       const [usuariosList, rolesList, sucursalesResponse] = await Promise.all([
         usersService.listUsuariosBySucursal(sucursalId),
-        rolesService.listRoles(),
+        rolesService.listRolesByEmpresaSucursal(empresaId, sucursalId),
         fetchSucursales(),
       ])
 
@@ -134,7 +134,7 @@ export function UsersTable() {
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los usuarios."))
     }
-  }, [sucursalId])
+  }, [empresaId, sucursalId])
 
   const getRoleById = (rolId: string) => roles.find((role) => role.id === rolId)
   const getSucursalById = (sucursalId: string) =>

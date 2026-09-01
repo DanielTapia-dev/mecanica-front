@@ -5,6 +5,8 @@ const API_BASE_PATH = "/api/mecanica"
 
 export const rolesApiPaths = {
   roles: `${API_BASE_PATH}/roles`,
+  rolesByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/roles`,
   rol: (rolId: string) => `${API_BASE_PATH}/rol/${rolId}`,
   createRol: `${API_BASE_PATH}/rol`,
 }
@@ -120,6 +122,18 @@ export async function requestRolesApi<T>(path: string, options: RolesRequestOpti
 export const rolesService = {
   async listRoles(options?: RolesRequestOptions): Promise<Role[]> {
     const payload = await requestRolesApi<unknown>(rolesApiPaths.roles, options)
+    return getListData<Role>(payload, ["roles", "data"])
+  },
+
+  async listRolesByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: RolesRequestOptions
+  ): Promise<Role[]> {
+    const payload = await requestRolesApi<unknown>(
+      rolesApiPaths.rolesByEmpresaSucursal(empresaId, sucursalId),
+      options
+    )
     return getListData<Role>(payload, ["roles", "data"])
   },
 
