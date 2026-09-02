@@ -79,7 +79,7 @@ export function generateEncuestaPdf(data: EncuestaPdfData) {
 
   doc.setFontSize(16)
   doc.setFont("helvetica", "bold")
-  doc.text("Encuesta de Satisfaccion", marginX, cursorY)
+  doc.text("Encuesta de Satisfaccion", pageWidth / 2, cursorY, { align: "center" })
   cursorY += 10
 
   doc.setFontSize(11)
@@ -147,6 +147,20 @@ export function generateEncuestaPdf(data: EncuestaPdfData) {
   ensureSpace(8)
   doc.setFont("helvetica", "italic")
   doc.text("Agradecemos el tiempo prestado para esta encuesta", marginX, cursorY)
+
+  cursorY += 24
+  ensureSpace(16)
+
+  const signatureLineWidth = 70
+  const signatureX = pageWidth / 2 - signatureLineWidth / 2
+
+  doc.setLineWidth(0.2)
+  doc.line(signatureX, cursorY, signatureX + signatureLineWidth, cursorY)
+  cursorY += 6
+
+  doc.setFont("helvetica", "normal")
+  doc.setFontSize(10)
+  doc.text("Firma del Cliente", pageWidth / 2, cursorY, { align: "center" })
 
   return doc
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ClipboardCheck, Loader2, Search, Wrench } from "lucide-react"
+import { CheckCircle2, ClipboardCheck, Loader2, Search, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,7 +23,6 @@ import type { SeguimientoOrden } from "../types"
 
 const tipoRegistroLabels: Record<string, string> = {
   ESTADO_ACTUAL: "Estado actual",
-  HISTORIAL: "Historial",
 }
 
 export function ConsultaClienteForm() {
@@ -76,7 +75,7 @@ export function ConsultaClienteForm() {
             <Wrench className="size-5 text-primary-foreground" />
           </div>
           <span className="text-lg font-semibold text-foreground">
-            {registroInfo?.empresa_nombre ?? "AutoTaller Pro"}
+            {registroInfo?.empresa_nombre ?? "SRG Centro de Colisiones"}
           </span>
         </div>
         {registroInfo?.sucursal_nombre ? (
@@ -142,13 +141,14 @@ export function ConsultaClienteForm() {
             <Card key={`${registro.orden_id}-${registro.tipo_registro}-${index}`}>
               <CardHeader className="flex flex-row items-center justify-between gap-2">
                 <CardTitle className="text-base">{registro.estado_nombre}</CardTitle>
-                <Badge
-                  variant={
-                    registro.tipo_registro === "ESTADO_ACTUAL" ? "default" : "outline"
-                  }
-                >
-                  {tipoRegistroLabels[registro.tipo_registro] ?? registro.tipo_registro}
-                </Badge>
+                {registro.tipo_registro === "ESTADO_ACTUAL" ? (
+                  <Badge variant="default">{tipoRegistroLabels.ESTADO_ACTUAL}</Badge>
+                ) : (
+                  <CheckCircle2
+                    className="h-6 w-6 shrink-0 text-emerald-500"
+                    aria-label="Estado culminado exitosamente"
+                  />
+                )}
               </CardHeader>
               {registro.mensaje_cliente ? (
                 <CardContent>
