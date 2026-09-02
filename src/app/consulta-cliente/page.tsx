@@ -7,8 +7,8 @@ export const metadata = {
 
 export default function ConsultaClientePage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-4 py-12">
-      <div className="fixed top-4 right-4">
+    <div className="flex min-h-screen flex-col items-center bg-muted/30 pb-12">
+      <div className="fixed top-4 right-4 z-10">
         <ThemeToggle />
       </div>
       <ConsultaClienteForm />
