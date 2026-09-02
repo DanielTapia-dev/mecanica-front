@@ -181,7 +181,7 @@ function ProcessStateStats({
         <CardContent>
           <div className="text-2xl font-bold text-foreground">{pendingOrders.length}</div>
           <p className="text-xs text-muted-foreground">
-            Ordenes en {stateName}
+            SeRGi Track in en {stateName}
           </p>
         </CardContent>
       </Card>
@@ -217,7 +217,7 @@ function ProcessStateStats({
             {oldestOrder ? `${oldestDays} ${oldestDays === 1 ? "dia" : "dias"}` : "0 dias"}
           </div>
           <p className="text-xs text-muted-foreground">
-            {oldestOrder ? `Orden ${oldestOrder.codigo || oldestOrder.id}` : "Sin ordenes en espera"}
+            {oldestOrder ? `SeRGi Track in ${oldestOrder.codigo || oldestOrder.id}` : "Sin ordenes en espera"}
           </p>
         </CardContent>
       </Card>
@@ -442,9 +442,9 @@ export function WorkOrdersList() {
     : "/ordenes/nueva"
   const pageTitle =
     focusedStateCode === ESTADO_PROCESO_CODES.ASESOR
-      ? "Ordenes de Asesoria"
+      ? "SeRGi Track in de Asesoria"
       : focusedStateCode === ESTADO_PROCESO_CODES.JEFE_TALLER
-      ? "Ordenes de Jefe de Taller"
+      ? "SeRGi Track in de Jefe de Taller"
       : focusedStateCode === ESTADO_PROCESO_CODES.REPUESTOS
         ? "Solicitud de Repuestos"
         : focusedStateCode === ESTADO_PROCESO_CODES.PROGRAMAR_CITA
@@ -452,8 +452,8 @@ export function WorkOrdersList() {
         : focusedStateCode === ESTADO_PROCESO_CODES.AUTO_INGRESADO
           ? "Autos ingresados"
         : showProcessStateStats && focusedProcessStateName
-          ? `Ordenes en ${focusedProcessStateName}`
-          : "Ordenes"
+          ? `SeRGi Track in en ${focusedProcessStateName}`
+          : "SeRGi Track in"
   const pageDescription =
     focusedStateCode === ESTADO_PROCESO_CODES.ASESOR
       ? "Revisa las ordenes de ingreso y envialas a Jefe de Taller."
@@ -562,7 +562,7 @@ export function WorkOrdersList() {
               <Table>
               <TableHeader>
                 <TableRow className="border-border bg-muted/50 hover:bg-muted/50">
-                  <TableHead>Orden</TableHead>
+                  <TableHead>SeRGi Track in</TableHead>
                   <TableHead>Vehiculo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Etapa</TableHead>

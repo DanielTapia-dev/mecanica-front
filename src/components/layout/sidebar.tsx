@@ -49,7 +49,7 @@ const navItems = [
   { href: "/roles", label: "Roles", icon: ShieldCheck },
   { href: "/usuarios", label: "Usuarios", icon: Users },
   { href: "/vehiculos", label: "Vehículos", icon: Car },
-  { href: "/ordenes", label: "Ordenes", icon: ClipboardList },
+  { href: "/ordenes", label: "SeRGi Track in", icon: ClipboardList },
   { href: "/recepcion", label: "Recepcion", icon: LayoutDashboard },
   { href: "/consulta-cliente", label: "Consulta Estado Vehículo", icon: Search },
 ]

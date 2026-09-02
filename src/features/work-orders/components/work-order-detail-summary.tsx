@@ -271,7 +271,7 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
           <div className="flex flex-wrap gap-2">
             <Link href="/ordenes" className={buttonVariants({ variant: "outline" })}>
               <ArrowLeft className="size-4" />
-              Volver a ordenes
+              Volver a SeRGi Track in
             </Link>
             {canOpenNewOrder && (
               <Link href={newOrderHref} className={buttonVariants({ variant: "outline" })}>
