@@ -637,8 +637,13 @@ function normalizeWorkOrder(payload: unknown): WorkOrder | undefined {
     fecha_finalizacion: fechaFinalizacion,
     creado_por_usuario_id:
       readString(order, ["creado_por_usuario_id", "creadoPorUsuarioId"]) ?? null,
-    actualizado_por_usuario_id:
-      readString(order, ["actualizado_por_usuario_id", "actualizadoPorUsuarioId"]) ?? null,
+    modificado_por_usuario_id:
+      readRelationId(order, "modificado_por", [
+        "modificado_por_usuario_id",
+        "modificadoPorUsuarioId",
+        "actualizado_por_usuario_id",
+        "actualizadoPorUsuarioId",
+      ]),
     creado_en: readString(order, ["creado_en", "creadoEn"]) ?? undefined,
     actualizado_en: readString(order, ["actualizado_en", "actualizadoEn"]) ?? undefined,
     cliente: customer,
@@ -646,6 +651,14 @@ function normalizeWorkOrder(payload: unknown): WorkOrder | undefined {
     departamento_actual: departamentoActual,
     estado_actual: estadoActual,
     estado_proceso: estadoProceso,
+    modificado_por: isRecord(order.modificado_por)
+      ? {
+          id: readString(order.modificado_por, ["id", "usuario_id", "usuarioId"]),
+          nombre: readString(order.modificado_por, ["nombre", "name"]),
+          apellido: readString(order.modificado_por, ["apellido", "lastName"]) ?? null,
+          email: readString(order.modificado_por, ["email", "correo"]) ?? null,
+        }
+      : null,
   }
 }
 
