@@ -27,6 +27,7 @@ const operationalRoleCodes: RoleCode[] = [
   "DEP_ENSAMBLAJE",
   "DEP_MECANICA",
   "DEP_LAVADO_CALIDAD",
+  "ASESOR",
 ]
 
 const operationalStateCodeSet = new Set<string>(OPERATIONAL_ESTADO_PROCESO_CODES)
@@ -160,7 +161,7 @@ export function getWorkOrderProcessTransitionConfig(
           ESTADO_PROCESO_CODES.ENTREGAR_AUTO,
         ]),
       ],
-      allowedRoles: ["CONTROL_CALIDAD", "DEP_LAVADO_CALIDAD"],
+      allowedRoles: ["CONTROL_CALIDAD", "DEP_LAVADO_CALIDAD", "ASESOR"],
       unavailableMessage:
         "Solo Control de Calidad puede enviar esta orden a Entregar Auto.",
       allowAdmin: false,
