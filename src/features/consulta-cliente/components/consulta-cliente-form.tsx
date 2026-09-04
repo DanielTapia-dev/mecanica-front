@@ -76,10 +76,10 @@ export function ConsultaClienteForm() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col">
-      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-green-700 via-green-800 to-green-950 px-6 pt-8 pb-8 text-center text-white shadow-lg">
+    <div className="mx-auto flex w-full max-w-sm flex-col sm:max-w-xl md:max-w-2xl">
+      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-green-700 via-green-800 to-green-950 px-6 pt-8 pb-8 text-center text-white shadow-lg sm:px-10 sm:pt-10 sm:pb-10">
         <div
-          className="absolute -top-10 -right-10 size-28 rotate-45 bg-red-600/90"
+          className="absolute -top-10 -right-10 size-28 rotate-45 bg-red-600/90 sm:size-36 md:size-40"
           aria-hidden="true"
         />
         <div className="relative">
@@ -88,33 +88,37 @@ export function ConsultaClienteForm() {
             <img
               src={logoBase64}
               alt={registroInfo?.empresa_nombre ?? "Logo de la empresa"}
-              className="mx-auto h-20 w-auto max-w-[70%] rounded-xl bg-white/95 object-contain p-2 shadow-md"
+              className="mx-auto h-20 w-auto max-w-[70%] rounded-xl bg-white/95 object-contain p-2 shadow-md sm:h-24 md:h-28"
             />
           ) : (
             <div className="flex items-center justify-center gap-2">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-white/15">
-                <Wrench className="size-5" />
+              <div className="flex size-9 items-center justify-center rounded-xl bg-white/15 sm:size-11">
+                <Wrench className="size-5 sm:size-6" />
               </div>
-              <span className="text-lg font-extrabold tracking-tight uppercase">
+              <span className="text-lg font-extrabold tracking-tight uppercase sm:text-xl md:text-2xl">
                 {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
               </span>
             </div>
           )}
           {logoBase64 ? (
-            <p className="mt-2 text-lg font-extrabold tracking-tight uppercase">
+            <p className="mt-2 text-lg font-extrabold tracking-tight uppercase sm:mt-3 sm:text-xl md:text-2xl">
               {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
             </p>
           ) : null}
           {registroInfo?.sucursal_nombre ? (
-            <p className="mt-1 text-sm font-medium text-green-100">{registroInfo.sucursal_nombre}</p>
+            <p className="mt-1 text-sm font-medium text-green-100 sm:text-base">
+              {registroInfo.sucursal_nombre}
+            </p>
           ) : (
-            <p className="mt-1 text-sm font-medium text-green-100">Seguimiento de tu vehículo</p>
+            <p className="mt-1 text-sm font-medium text-green-100 sm:text-base">
+              Seguimiento de tu vehículo
+            </p>
           )}
         </div>
       </div>
 
-      <div className="mt-5 space-y-5 px-5">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-md">
+      <div className="mt-5 space-y-5 px-5 sm:px-10">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-md sm:mx-auto sm:max-w-md sm:py-2.5">
           <Search className="ml-2 size-4 shrink-0 text-muted-foreground" />
           <input
             id="placa"
@@ -127,7 +131,7 @@ export function ConsultaClienteForm() {
                 handleConsultar()
               }
             }}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground sm:text-base"
           />
           <Button
             onClick={handleConsultar}
@@ -148,8 +152,8 @@ export function ConsultaClienteForm() {
 
         {resultados && resultados.length > 0 && registroInfo ? (
           <div className="space-y-5">
-            <div className="flex items-center justify-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-900 dark:bg-green-950/40 dark:text-green-100">
-              <Car className="size-4 text-green-700 dark:text-green-400" />
+            <div className="flex items-center justify-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-900 sm:py-2.5 sm:text-base dark:bg-green-950/40 dark:text-green-100">
+              <Car className="size-4 text-green-700 sm:size-5 dark:text-green-400" />
               {registroInfo.vehiculo_placa}
             </div>
 
@@ -171,7 +175,7 @@ export function ConsultaClienteForm() {
                   <div
                     key={`${registro.orden_id}-${registro.tipo_registro}-${index}`}
                     className={cn(
-                      "flex items-start gap-3 rounded-2xl px-4 py-3.5 shadow-sm transition-colors",
+                      "flex items-start gap-3 rounded-2xl px-4 py-3.5 shadow-sm transition-colors sm:px-5 sm:py-4",
                       esActual
                         ? "bg-gradient-to-r from-green-700 to-green-600 text-white"
                         : "border border-border bg-card text-foreground"
@@ -179,20 +183,24 @@ export function ConsultaClienteForm() {
                   >
                     <div
                       className={cn(
-                        "flex size-9 shrink-0 items-center justify-center rounded-full",
+                        "flex size-9 shrink-0 items-center justify-center rounded-full sm:size-10",
                         esActual ? "bg-white/15" : visual.iconBg
                       )}
                     >
                       <StateIcon
-                        className={cn("size-[18px]", esActual ? "text-white" : visual.iconText)}
+                        className={cn(
+                          "size-[18px] sm:size-5",
+                          esActual ? "text-white" : visual.iconText
+                        )}
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">{registro.estado_nombre}</p>
-                      {registro.mensaje_cliente ? (
+                      <p className="text-sm font-semibold sm:text-base">{registro.estado_nombre}</p>
+                      {registro.mensaje_cliente &&
+                      !(registro.es_final && registro.encuesta_realizada) ? (
                         <p
                           className={cn(
-                            "mt-0.5 text-xs",
+                            "mt-0.5 text-xs sm:text-sm",
                             esActual ? "text-green-50/90" : "text-muted-foreground"
                           )}
                         >
@@ -201,7 +209,7 @@ export function ConsultaClienteForm() {
                       ) : null}
                     </div>
                     {!esActual ? (
-                      <CheckCircle2 className="size-[18px] shrink-0 text-red-600" />
+                      <CheckCircle2 className="size-[18px] shrink-0 text-red-600 sm:size-5" />
                     ) : null}
                   </div>
                 )
@@ -211,8 +219,7 @@ export function ConsultaClienteForm() {
             {mostrarBotonEncuesta ? (
               <Button
                 onClick={() => setIsEncuestaOpen(true)}
-                variant="outline"
-                className="w-full gap-2 rounded-full border-green-600 text-green-800 hover:bg-green-50 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-950/40"
+                className="w-full gap-2 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md shadow-red-600/30 hover:from-red-700 hover:to-red-800 sm:h-10 sm:text-base"
               >
                 <ClipboardCheck className="h-4 w-4" />
                 Realizar encuesta de satisfacción
@@ -220,7 +227,7 @@ export function ConsultaClienteForm() {
             ) : null}
 
             {encuestaCompletada ? (
-              <div className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-700 to-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm">
+              <div className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-700 to-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm sm:text-base">
                 <HeartHandshake className="size-4" />
                 ¡Gracias por completar la encuesta de satisfacción!
               </div>
