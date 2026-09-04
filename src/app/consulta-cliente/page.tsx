@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function ConsultaClientePage() {
   return (
-    <div className="flex min-h-screen flex-col items-center bg-muted/30 pb-12">
+    <div className="flex min-h-screen flex-col items-center bg-gradient-to-b from-green-50 via-background to-background pb-12 dark:from-green-950/20">
       <div className="fixed top-4 right-4 z-10">
         <ThemeToggle />
       </div>

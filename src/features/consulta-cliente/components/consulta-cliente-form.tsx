@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Car, CheckCircle2, ClipboardCheck, Loader2, Search, Wrench } from "lucide-react"
+import {
+  Car,
+  CheckCircle2,
+  ClipboardCheck,
+  HeartHandshake,
+  Loader2,
+  Search,
+  Wrench,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { EncuestaSatisfaccionForm } from "@/features/encuestas/components/encuesta-satisfaccion-form"
+import { getProcessStateVisual } from "@/features/work-orders/process-state-visuals"
 import {
   ConsultaClienteApiError,
   fetchLogoPublico,
@@ -68,42 +77,49 @@ export function ConsultaClienteForm() {
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col">
-      <div className="rounded-b-[2rem] bg-primary px-6 pt-8 pb-12 text-center text-primary-foreground shadow-lg">
-        {logoBase64 ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={logoBase64}
-            alt={registroInfo?.empresa_nombre ?? "Logo de la empresa"}
-            className="mx-auto h-20 w-auto max-w-[70%] rounded-xl bg-primary-foreground/95 object-contain p-2 shadow-sm"
-          />
-        ) : (
-          <div className="flex items-center justify-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary-foreground/15">
-              <Wrench className="size-5" />
+      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-green-700 via-green-800 to-green-950 px-6 pt-8 pb-8 text-center text-white shadow-lg">
+        <div
+          className="absolute -top-10 -right-10 size-28 rotate-45 bg-red-600/90"
+          aria-hidden="true"
+        />
+        <div className="relative">
+          {logoBase64 ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoBase64}
+              alt={registroInfo?.empresa_nombre ?? "Logo de la empresa"}
+              className="mx-auto h-20 w-auto max-w-[70%] rounded-xl bg-white/95 object-contain p-2 shadow-md"
+            />
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-white/15">
+                <Wrench className="size-5" />
+              </div>
+              <span className="text-lg font-extrabold tracking-tight uppercase">
+                {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
+              </span>
             </div>
-            <span className="text-lg font-semibold">
+          )}
+          {logoBase64 ? (
+            <p className="mt-2 text-lg font-extrabold tracking-tight uppercase">
               {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
-            </span>
-          </div>
-        )}
-        {logoBase64 ? (
-          <p className="mt-2 text-lg font-semibold">
-            {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
-          </p>
-        ) : null}
-        {registroInfo?.sucursal_nombre ? (
-          <p className="mt-1 text-sm text-primary-foreground/80">{registroInfo.sucursal_nombre}</p>
-        ) : (
-          <p className="mt-1 text-sm text-primary-foreground/80">Seguimiento de tu vehículo</p>
-        )}
+            </p>
+          ) : null}
+          {registroInfo?.sucursal_nombre ? (
+            <p className="mt-1 text-sm font-medium text-green-100">{registroInfo.sucursal_nombre}</p>
+          ) : (
+            <p className="mt-1 text-sm font-medium text-green-100">Seguimiento de tu vehículo</p>
+          )}
+        </div>
       </div>
 
-      <div className="-mt-7 space-y-5 px-5">
+      <div className="mt-5 space-y-5 px-5">
         <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-md">
           <Search className="ml-2 size-4 shrink-0 text-muted-foreground" />
           <input
             id="placa"
             placeholder="Ingresa la placa del vehículo"
+            autoComplete="off"
             value={placa}
             onChange={(event) => setPlaca(event.target.value.toUpperCase())}
             onKeyDown={(event) => {
@@ -117,7 +133,7 @@ export function ConsultaClienteForm() {
             onClick={handleConsultar}
             disabled={loading}
             size="icon"
-            className="size-9 shrink-0 rounded-full"
+            className="size-9 shrink-0 rounded-full bg-green-700 hover:bg-green-800"
           >
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
           </Button>
@@ -132,18 +148,24 @@ export function ConsultaClienteForm() {
 
         {resultados && resultados.length > 0 && registroInfo ? (
           <div className="space-y-5">
-            <div className="flex items-center justify-center gap-2 rounded-full bg-muted px-4 py-2 text-sm font-medium text-foreground">
-              <Car className="size-4 text-primary" />
+            <div className="flex items-center justify-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-900 dark:bg-green-950/40 dark:text-green-100">
+              <Car className="size-4 text-green-700 dark:text-green-400" />
               {registroInfo.vehiculo_placa}
             </div>
 
-            <p className="text-center text-xs font-semibold tracking-wide text-primary uppercase">
-              Estado del proceso
-            </p>
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-green-600" />
+              <span className="text-xs font-semibold tracking-wide text-green-800 uppercase dark:text-green-300">
+                Estado del proceso
+              </span>
+              <span className="h-px flex-1 bg-red-600" />
+            </div>
 
             <div className="space-y-3">
               {resultados.map((registro, index) => {
                 const esActual = registro.tipo_registro === "ESTADO_ACTUAL"
+                const visual = getProcessStateVisual(registro.estado_codigo)
+                const StateIcon = visual.Icon
 
                 return (
                   <div
@@ -151,21 +173,19 @@ export function ConsultaClienteForm() {
                     className={cn(
                       "flex items-start gap-3 rounded-2xl px-4 py-3.5 shadow-sm transition-colors",
                       esActual
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-gradient-to-r from-green-700 to-green-600 text-white"
                         : "border border-border bg-card text-foreground"
                     )}
                   >
                     <div
                       className={cn(
                         "flex size-9 shrink-0 items-center justify-center rounded-full",
-                        esActual ? "bg-primary-foreground/15" : "bg-emerald-500/15"
+                        esActual ? "bg-white/15" : visual.iconBg
                       )}
                     >
-                      {esActual ? (
-                        <Wrench className="size-[18px]" />
-                      ) : (
-                        <CheckCircle2 className="size-[18px] text-emerald-500" />
-                      )}
+                      <StateIcon
+                        className={cn("size-[18px]", esActual ? "text-white" : visual.iconText)}
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold">{registro.estado_nombre}</p>
@@ -173,13 +193,16 @@ export function ConsultaClienteForm() {
                         <p
                           className={cn(
                             "mt-0.5 text-xs",
-                            esActual ? "text-primary-foreground/85" : "text-muted-foreground"
+                            esActual ? "text-green-50/90" : "text-muted-foreground"
                           )}
                         >
                           {registro.mensaje_cliente}
                         </p>
                       ) : null}
                     </div>
+                    {!esActual ? (
+                      <CheckCircle2 className="size-[18px] shrink-0 text-red-600" />
+                    ) : null}
                   </div>
                 )
               })}
@@ -189,7 +212,7 @@ export function ConsultaClienteForm() {
               <Button
                 onClick={() => setIsEncuestaOpen(true)}
                 variant="outline"
-                className="w-full gap-2 rounded-full"
+                className="w-full gap-2 rounded-full border-green-600 text-green-800 hover:bg-green-50 dark:border-green-600 dark:text-green-300 dark:hover:bg-green-950/40"
               >
                 <ClipboardCheck className="h-4 w-4" />
                 Realizar encuesta de satisfacción
@@ -197,9 +220,10 @@ export function ConsultaClienteForm() {
             ) : null}
 
             {encuestaCompletada ? (
-              <p className="text-center text-sm text-muted-foreground">
+              <div className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-700 to-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm">
+                <HeartHandshake className="size-4" />
                 ¡Gracias por completar la encuesta de satisfacción!
-              </p>
+              </div>
             ) : null}
           </div>
         ) : null}
