@@ -144,11 +144,16 @@ export function generateEncuestaPdf(data: EncuestaPdfData) {
   doc.text(comentarioLines, marginX, cursorY)
   cursorY += comentarioLines.length * 5.5 + 14
 
-  ensureSpace(8)
   doc.setFont("helvetica", "italic")
-  doc.text("Agradecemos el tiempo prestado para esta encuesta", marginX, cursorY)
+  const agradecimientoLines = doc.splitTextToSize(
+    "Gracias por elegir a SRG Talleres. Seguiremos trabajando para bridarte el mejor servicio.",
+    contentWidth
+  ) as string[]
 
-  cursorY += 24
+  ensureSpace(agradecimientoLines.length * 5.5)
+
+  doc.text(agradecimientoLines, marginX, cursorY)
+  cursorY += agradecimientoLines.length * 5.5 + 18
   ensureSpace(16)
 
   const signatureLineWidth = 70

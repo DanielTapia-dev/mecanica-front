@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Car, CheckCircle2, ClipboardCheck, Loader2, Search, Wrench } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { EncuestaSatisfaccionForm } from "@/features/encuestas/components/encuesta-satisfaccion-form"
 import {
   ConsultaClienteApiError,
+  fetchLogoPublico,
   fetchSeguimientoPorPlaca,
 } from "../services/consulta-cliente-service"
 import type { SeguimientoOrden } from "../types"
@@ -23,8 +24,13 @@ export function ConsultaClienteForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultados, setResultados] = useState<SeguimientoOrden[] | null>(null)
+  const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [isEncuestaOpen, setIsEncuestaOpen] = useState(false)
   const [encuestaCompletada, setEncuestaCompletada] = useState(false)
+
+  useEffect(() => {
+    fetchLogoPublico().then(setLogoBase64)
+  }, [])
 
   const registroInfo = resultados && resultados.length > 0 ? resultados[0] : null
   const estadoActual =
@@ -63,14 +69,28 @@ export function ConsultaClienteForm() {
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col">
       <div className="rounded-b-[2rem] bg-primary px-6 pt-8 pb-12 text-center text-primary-foreground shadow-lg">
-        <div className="flex items-center justify-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary-foreground/15">
-            <Wrench className="size-5" />
+        {logoBase64 ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoBase64}
+            alt={registroInfo?.empresa_nombre ?? "Logo de la empresa"}
+            className="mx-auto h-20 w-auto max-w-[70%] rounded-xl bg-primary-foreground/95 object-contain p-2 shadow-sm"
+          />
+        ) : (
+          <div className="flex items-center justify-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary-foreground/15">
+              <Wrench className="size-5" />
+            </div>
+            <span className="text-lg font-semibold">
+              {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
+            </span>
           </div>
-          <span className="text-lg font-semibold">
-            {registroInfo?.empresa_nombre ?? "SRG Centro de Colisiones"}
-          </span>
-        </div>
+        )}
+        {logoBase64 ? (
+          <p className="mt-2 text-lg font-semibold">
+            {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
+          </p>
+        ) : null}
         {registroInfo?.sucursal_nombre ? (
           <p className="mt-1 text-sm text-primary-foreground/80">{registroInfo.sucursal_nombre}</p>
         ) : (
