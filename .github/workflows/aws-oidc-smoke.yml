@@ -1,0 +1,44 @@
+# Install as .github/workflows/aws-oidc-smoke.yml only after owner approval.
+# Manual probe only. Does not build, push images, or deploy applications.
+name: AWS OIDC smoke
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-1
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-duration-seconds: 900
+          role-session-name: oidc-smoke-${{ github.run_id }}
+          unset-current-credentials: true
+      - name: Verify identity and own registry access
+        run: |
+          aws sts get-caller-identity
+          aws ecr describe-repositories --repository-names factupro/mecanica-nextjs --region us-east-1
+          aws ecr get-authorization-token --region us-east-1 --query 'authorizationData[].proxyEndpoint'
+      - name: Verify other repository access is denied
+        run: |
+          if aws ecr describe-repositories --region us-east-1 --repository-names factupro/factupro-backend > /dev/null 2> denial.txt; then
+            echo 'Unexpected cross-repository permission' >&2
+            exit 1
+          fi
+          grep -q AccessDeniedException denial.txt
+          rm denial.txt
+      - name: Execute fixed read-only SSM probe on new platform
+        env:
+          INSTANCE_ID: ${{ vars.PLATFORM_INSTANCE_ID }}
+        run: |
+          command_id=$(aws ssm send-command --region us-east-1 --instance-ids "$INSTANCE_ID" --document-name factupro-platform-production-oidc-probe --query Command.CommandId --output text)
+          aws ssm wait command-executed --region us-east-1 --command-id "$command_id" --instance-id "$INSTANCE_ID"
+          aws ssm get-command-invocation --region us-east-1 --command-id "$command_id" --instance-id "$INSTANCE_ID" --query '{Status:Status,Output:StandardOutputContent}'
