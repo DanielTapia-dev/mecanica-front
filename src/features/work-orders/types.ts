@@ -244,7 +244,7 @@ export interface WorkOrder {
   fecha_inicio_proceso?: IsoDateString | null
   fecha_finalizacion?: IsoDateString | null
   creado_por_usuario_id?: EntityId | null
-  actualizado_por_usuario_id?: EntityId | null
+  modificado_por_usuario_id?: EntityId | null
   creado_en?: IsoDateString
   actualizado_en?: IsoDateString
   cliente?: CustomerSummary
@@ -259,6 +259,12 @@ export interface WorkOrder {
     id?: EntityId
     codigo?: EstadoProcesoCode | string
     nombre?: string
+  } | null
+  modificado_por?: {
+    id?: EntityId
+    nombre?: string
+    apellido?: string | null
+    email?: string | null
   } | null
   solicitud_repuestos?: SparePartRequest | null
   historial_departamentos?: WorkOrderDepartmentHistory[]
@@ -298,6 +304,7 @@ export type WorkOrderListItem = Pick<
   | "motivo_ingreso"
   | "fecha_creacion"
   | "fecha_finalizacion"
+  | "creado_por_usuario_id"
   | "creado_en"
   | "actualizado_en"
   | "cliente"
@@ -388,7 +395,7 @@ export interface UpdateWorkOrderInput {
   encuesta_realizada?: boolean
   fecha_encuesta?: IsoDateString | null
   observacion_cliente?: string | null
-  actualizado_por_usuario_id?: EntityId | null
+  modificado_por_usuario_id?: EntityId | null
   fecha_inicio_proceso?: IsoDateString | null
   fecha_finalizacion?: IsoDateString | null
 }

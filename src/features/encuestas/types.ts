@@ -1,6 +1,7 @@
 export interface EncuestaPlantilla {
   id: string
   empresa_id: string
+  sucursal_id: string
   nombre: string
   descripcion: string | null
   activo: boolean
@@ -13,6 +14,7 @@ export interface EncuestaPlantilla {
 
 export interface CreateEncuestaPlantillaInput {
   empresa_id: string
+  sucursal_id: string
   nombre: string
   descripcion?: string
   activo?: boolean
@@ -31,6 +33,7 @@ export interface EncuestaPregunta {
   id: string
   plantilla_id: string
   empresa_id: string
+  sucursal_id: string
   texto_pregunta: string
   descripcion_ayuda: string | null
   escala_min: number
@@ -46,6 +49,7 @@ export interface EncuestaPregunta {
 export interface CreateEncuestaPreguntaInput {
   plantilla_id: string
   empresa_id: string
+  sucursal_id: string
   texto_pregunta: string
   descripcion_ayuda?: string
   escala_min?: number

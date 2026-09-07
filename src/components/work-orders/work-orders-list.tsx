@@ -181,7 +181,7 @@ function ProcessStateStats({
         <CardContent>
           <div className="text-2xl font-bold text-foreground">{pendingOrders.length}</div>
           <p className="text-xs text-muted-foreground">
-            Ordenes en {stateName}
+            SeRGi Track in en {stateName}
           </p>
         </CardContent>
       </Card>
@@ -217,7 +217,7 @@ function ProcessStateStats({
             {oldestOrder ? `${oldestDays} ${oldestDays === 1 ? "dia" : "dias"}` : "0 dias"}
           </div>
           <p className="text-xs text-muted-foreground">
-            {oldestOrder ? `Orden ${oldestOrder.codigo || oldestOrder.id}` : "Sin ordenes en espera"}
+            {oldestOrder ? `SeRGi Track in ${oldestOrder.codigo || oldestOrder.id}` : "Sin ordenes en espera"}
           </p>
         </CardContent>
       </Card>
@@ -270,7 +270,8 @@ export function WorkOrdersList() {
     [focusedProcessStates]
   )
   const focusedStateCode = focusedStateCodes[0] ?? null
-  const shouldUseFocusedStateView = Boolean(user)
+  const isAdmin = hasExplicitRole(user, ["ADMIN"])
+  const shouldUseFocusedStateView = Boolean(user) && !isAdmin
   const showProcessStateStats =
     shouldUseFocusedStateView && focusedProcessStates.length > 0
   const scopeEmpresaId = sessionScope.empresa_id
@@ -324,11 +325,13 @@ export function WorkOrdersList() {
             ],
           }
         : await workOrdersService.listWorkOrders(
-            scopeSucursalId
-              ? { sucursal_id: scopeSucursalId }
-              : scopeEmpresaId
-                ? { empresa_id: scopeEmpresaId }
-                : undefined
+            scopeEmpresaId && scopeSucursalId
+              ? { empresa_id: scopeEmpresaId, sucursal_id: scopeSucursalId }
+              : scopeSucursalId
+                ? { sucursal_id: scopeSucursalId }
+                : scopeEmpresaId
+                  ? { empresa_id: scopeEmpresaId }
+                  : undefined
           )
       const scopedOrders = shouldUseFocusedStateView
         ? getScopedOrders(result.data, {
@@ -384,7 +387,8 @@ export function WorkOrdersList() {
         const result = await loadProcessStateAccess(
           user,
           undefined,
-          roleStatePermissions.allowedProcessStateIds
+          roleStatePermissions.allowedProcessStateIds,
+          scopeSucursalId
         )
 
         if (isMounted) {
@@ -410,17 +414,27 @@ export function WorkOrdersList() {
     return () => {
       isMounted = false
     }
-  }, [roleStatePermissions.allowedProcessStateIds, user])
+  }, [roleStatePermissions.allowedProcessStateIds, user, scopeSucursalId])
 
-  const accessibleOrders =
-    !isLoadingStateAccess && !stateAccessError
+  const accessibleOrders = isAdmin
+    ? orders
+    : !isLoadingStateAccess && !stateAccessError
       ? orders.filter((order) =>
           canAccessCurrentProcessState(user, order, stateAccess)
         )
       : []
+  const isAsesorOnly =
+    hasExplicitRole(user, ["ASESOR"]) && !hasExplicitRole(user, ["ADMIN"])
+  const ownOrders =
+    isAsesorOnly && sessionScope.user_id
+      ? accessibleOrders.filter(
+          (order) =>
+            String(order.creado_por_usuario_id ?? "") === String(sessionScope.user_id)
+        )
+      : accessibleOrders
   const visibleOrders = query.trim()
-    ? filterWorkOrders(accessibleOrders, { query: query.trim() })
-    : accessibleOrders
+    ? filterWorkOrders(ownOrders, { query: query.trim() })
+    : ownOrders
   const isPageLoading = isLoading || isLoadingStateAccess
   const canOpenNewOrder = hasAnyRole(user, ["ASESOR", "RECEPCION"])
   const newOrderHref = hasExplicitRole(user, ["ASESOR"])
@@ -428,9 +442,9 @@ export function WorkOrdersList() {
     : "/ordenes/nueva"
   const pageTitle =
     focusedStateCode === ESTADO_PROCESO_CODES.ASESOR
-      ? "Ordenes de Asesoria"
+      ? "SeRGi Track in de Asesoria"
       : focusedStateCode === ESTADO_PROCESO_CODES.JEFE_TALLER
-      ? "Ordenes de Jefe de Taller"
+      ? "SeRGi Track in de Jefe de Taller"
       : focusedStateCode === ESTADO_PROCESO_CODES.REPUESTOS
         ? "Solicitud de Repuestos"
         : focusedStateCode === ESTADO_PROCESO_CODES.PROGRAMAR_CITA
@@ -438,8 +452,8 @@ export function WorkOrdersList() {
         : focusedStateCode === ESTADO_PROCESO_CODES.AUTO_INGRESADO
           ? "Autos ingresados"
         : showProcessStateStats && focusedProcessStateName
-          ? `Ordenes en ${focusedProcessStateName}`
-          : "Ordenes"
+          ? `SeRGi Track in en ${focusedProcessStateName}`
+          : "SeRGi Track in"
   const pageDescription =
     focusedStateCode === ESTADO_PROCESO_CODES.ASESOR
       ? "Revisa las ordenes de ingreso y envialas a Jefe de Taller."
@@ -475,7 +489,7 @@ export function WorkOrdersList() {
 
       {showProcessStateStats && focusedProcessStateName && (
         <ProcessStateStats
-          orders={accessibleOrders}
+          orders={ownOrders}
           stateName={focusedProcessStateName}
           visual={processVisual}
         />
@@ -535,7 +549,9 @@ export function WorkOrdersList() {
               <div>
                 <p className="font-medium text-foreground">Sin ordenes para mostrar</p>
                 <p className="text-sm text-muted-foreground">
-                  No hay ordenes en los estados habilitados para tu rol.
+                  {isAsesorOnly
+                    ? "No hay ordenes creadas por ti en los estados habilitados para tu rol."
+                    : "No hay ordenes en los estados habilitados para tu rol."}
                 </p>
               </div>
             </div>
@@ -546,7 +562,7 @@ export function WorkOrdersList() {
               <Table>
               <TableHeader>
                 <TableRow className="border-border bg-muted/50 hover:bg-muted/50">
-                  <TableHead>Orden</TableHead>
+                  <TableHead>SeRGi Track in</TableHead>
                   <TableHead>Vehiculo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Etapa</TableHead>

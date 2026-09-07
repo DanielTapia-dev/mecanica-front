@@ -47,6 +47,8 @@ export const workOrderApiPaths = {
     `${API_BASE_PATH}/empresa/${empresaId}/ordenes-trabajo`,
   workOrdersBySucursal: (sucursalId: EntityId) =>
     `${API_BASE_PATH}/sucursal/${sucursalId}/ordenes-trabajo`,
+  workOrdersByEmpresaSucursal: (empresaId: EntityId, sucursalId: EntityId) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/ordenes-trabajo`,
   workOrdersByClienteCedula: (clienteCedula: string) =>
     `${API_BASE_PATH}/cliente-cedula/${encodeURIComponent(clienteCedula)}/ordenes-trabajo`,
   workOrdersByVehicle: (vehicleId: EntityId) =>
@@ -635,8 +637,13 @@ function normalizeWorkOrder(payload: unknown): WorkOrder | undefined {
     fecha_finalizacion: fechaFinalizacion,
     creado_por_usuario_id:
       readString(order, ["creado_por_usuario_id", "creadoPorUsuarioId"]) ?? null,
-    actualizado_por_usuario_id:
-      readString(order, ["actualizado_por_usuario_id", "actualizadoPorUsuarioId"]) ?? null,
+    modificado_por_usuario_id:
+      readRelationId(order, "modificado_por", [
+        "modificado_por_usuario_id",
+        "modificadoPorUsuarioId",
+        "actualizado_por_usuario_id",
+        "actualizadoPorUsuarioId",
+      ]),
     creado_en: readString(order, ["creado_en", "creadoEn"]) ?? undefined,
     actualizado_en: readString(order, ["actualizado_en", "actualizadoEn"]) ?? undefined,
     cliente: customer,
@@ -644,6 +651,14 @@ function normalizeWorkOrder(payload: unknown): WorkOrder | undefined {
     departamento_actual: departamentoActual,
     estado_actual: estadoActual,
     estado_proceso: estadoProceso,
+    modificado_por: isRecord(order.modificado_por)
+      ? {
+          id: readString(order.modificado_por, ["id", "usuario_id", "usuarioId"]),
+          nombre: readString(order.modificado_por, ["nombre", "name"]),
+          apellido: readString(order.modificado_por, ["apellido", "lastName"]) ?? null,
+          email: readString(order.modificado_por, ["email", "correo"]) ?? null,
+        }
+      : null,
   }
 }
 
@@ -756,6 +771,13 @@ function getWorkOrdersListRequest(filters?: WorkOrderListFilters) {
     estado_actual_id,
     ...query
   } = filters
+
+  if (empresa_id && sucursal_id) {
+    return {
+      path: workOrderApiPaths.workOrdersByEmpresaSucursal(empresa_id, sucursal_id),
+      query,
+    }
+  }
 
   if (sucursal_id) {
     return {

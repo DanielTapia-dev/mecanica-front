@@ -15,6 +15,8 @@ export const encuestasApiPaths = {
   plantillas: `${API_BASE_PATH}/encuesta/plantillas`,
   plantillasByEmpresa: (empresaId: string) =>
     `${API_BASE_PATH}/empresa/${empresaId}/encuesta/plantillas`,
+  plantillasByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/encuesta/plantillas`,
   plantillaActivaByEmpresa: (empresaId: string) =>
     `${API_BASE_PATH}/empresa/${empresaId}/encuesta/plantilla-activa`,
   plantilla: (plantillaId: string) => `${API_BASE_PATH}/encuesta/plantilla/${plantillaId}`,
@@ -23,6 +25,8 @@ export const encuestasApiPaths = {
   preguntas: `${API_BASE_PATH}/encuesta/preguntas`,
   preguntasByPlantilla: (plantillaId: string) =>
     `${API_BASE_PATH}/encuesta/plantilla/${plantillaId}/preguntas`,
+  preguntasByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/encuesta/preguntas`,
   pregunta: (preguntaId: string) => `${API_BASE_PATH}/encuesta/pregunta/${preguntaId}`,
   createPregunta: `${API_BASE_PATH}/encuesta/pregunta`,
 
@@ -31,6 +35,8 @@ export const encuestasApiPaths = {
     `${API_BASE_PATH}/empresa/${empresaId}/encuesta/respuestas`,
   respuestasBySucursal: (sucursalId: string) =>
     `${API_BASE_PATH}/sucursal/${sucursalId}/encuesta/respuestas`,
+  respuestasByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/encuesta/respuestas`,
   respuestasByPlaca: (placa: string) =>
     `${API_BASE_PATH}/encuesta/placa/${encodeURIComponent(placa)}/respuestas`,
   respuesta: (respuestaId: string) => `${API_BASE_PATH}/encuesta/respuesta/${respuestaId}`,
@@ -163,6 +169,18 @@ export const encuestasService = {
     return getListData<EncuestaPlantilla>(payload, ["plantillas", "data"])
   },
 
+  async listPlantillasByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: EncuestasRequestOptions
+  ): Promise<EncuestaPlantilla[]> {
+    const payload = await requestEncuestasApi<unknown>(
+      encuestasApiPaths.plantillasByEmpresaSucursal(empresaId, sucursalId),
+      options
+    )
+    return getListData<EncuestaPlantilla>(payload, ["plantillas", "data"])
+  },
+
   getPlantilla(plantillaId: string, options?: EncuestasRequestOptions) {
     return requestEncuestasApi<EncuestaPlantilla>(
       encuestasApiPaths.plantilla(plantillaId),
@@ -208,6 +226,18 @@ export const encuestasService = {
     return getListData<EncuestaPregunta>(payload, ["preguntas", "data"])
   },
 
+  async listPreguntasByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: EncuestasRequestOptions
+  ): Promise<EncuestaPregunta[]> {
+    const payload = await requestEncuestasApi<unknown>(
+      encuestasApiPaths.preguntasByEmpresaSucursal(empresaId, sucursalId),
+      options
+    )
+    return getListData<EncuestaPregunta>(payload, ["preguntas", "data"])
+  },
+
   async createPregunta(input: CreateEncuestaPreguntaInput, options?: EncuestasRequestOptions) {
     const payload = await requestEncuestasApi<{ pregunta: EncuestaPregunta }>(
       encuestasApiPaths.createPregunta,
@@ -241,6 +271,18 @@ export const encuestasService = {
   ): Promise<EncuestaRespuesta[]> {
     const payload = await requestEncuestasApi<unknown>(
       encuestasApiPaths.respuestasByEmpresa(empresaId),
+      options
+    )
+    return getListData<EncuestaRespuesta>(payload, ["respuestas", "data"])
+  },
+
+  async listRespuestasByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: EncuestasRequestOptions
+  ): Promise<EncuestaRespuesta[]> {
+    const payload = await requestEncuestasApi<unknown>(
+      encuestasApiPaths.respuestasByEmpresaSucursal(empresaId, sucursalId),
       options
     )
     return getListData<EncuestaRespuesta>(payload, ["respuestas", "data"])

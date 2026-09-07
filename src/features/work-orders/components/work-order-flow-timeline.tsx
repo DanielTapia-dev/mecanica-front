@@ -105,6 +105,15 @@ function getHistoryActor(entry: WorkOrderStateHistory) {
   return fullName || entry.registrado_por?.email || null
 }
 
+function getOrderModifierActor(order: WorkOrder) {
+  const fullName = [order.modificado_por?.nombre, order.modificado_por?.apellido]
+    .filter(Boolean)
+    .join(" ")
+    .trim()
+
+  return fullName || order.modificado_por?.email || null
+}
+
 function getCurrentStateId(
   order: WorkOrder,
   currentProcessState?: EstadoProceso | null
@@ -268,7 +277,7 @@ function buildFlowSteps(
       (currentCode ? getReadableStateName(currentCode) : order.etapa_actual),
     subState: order.sub_estado_actual,
     occurredAt: currentStateDate,
-    actor: null,
+    actor: getOrderModifierActor(order),
     isCurrent: true,
   }
   const lastStep = collapsedSteps.at(-1)
@@ -277,6 +286,7 @@ function buildFlowSteps(
     lastStep.isCurrent = true
     lastStep.subState = currentStep.subState ?? lastStep.subState
     lastStep.occurredAt ??= currentStep.occurredAt
+    lastStep.actor = currentStep.actor ?? lastStep.actor
   } else {
     collapsedSteps.push(currentStep)
   }
