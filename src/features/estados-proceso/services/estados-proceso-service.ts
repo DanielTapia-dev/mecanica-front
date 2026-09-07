@@ -8,6 +8,8 @@ export const estadosProcesoApiPaths = {
   estadosProcesoActive: `${API_BASE_PATH}/estados-proceso/activos`,
   estadosProcesoByEmpresa: (empresaId: string) =>
     `${API_BASE_PATH}/empresa/${empresaId}/estados-proceso`,
+  estadosProcesoByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/estados-proceso`,
   estadoProceso: (estadoProcesoId: string) => `${API_BASE_PATH}/estado-proceso/${estadoProcesoId}`,
   buscarEstadoProceso: (codigo: string) =>
     `${API_BASE_PATH}/estados-proceso/buscar?codigo=${encodeURIComponent(codigo)}`,
@@ -154,6 +156,18 @@ export const estadosProcesoService = {
   ): Promise<EstadoProceso[]> {
     const payload = await requestEstadosProcesoApi<unknown>(
       estadosProcesoApiPaths.estadosProcesoByEmpresa(empresaId),
+      options
+    )
+    return getListData<EstadoProceso>(payload, ["estados_proceso", "estadosProceso", "data"])
+  },
+
+  async listEstadosProcesoByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: EstadosProcesoRequestOptions
+  ): Promise<EstadoProceso[]> {
+    const payload = await requestEstadosProcesoApi<unknown>(
+      estadosProcesoApiPaths.estadosProcesoByEmpresaSucursal(empresaId, sucursalId),
       options
     )
     return getListData<EstadoProceso>(payload, ["estados_proceso", "estadosProceso", "data"])

@@ -45,8 +45,9 @@ import {
   updateEmpresa,
 } from "@/features/empresas/services/empresas-service"
 import type { Empresa, EmpresaInput } from "@/features/empresas/types"
+import { LogoUploader } from "@/features/empresas/components/logo-uploader"
 
-function readEmpresaInput(formData: FormData): EmpresaInput {
+function readEmpresaInput(formData: FormData, logobase64: string | null): EmpresaInput {
   return {
     ruc: (formData.get("ruc") as string).trim(),
     razon_social: (formData.get("razon_social") as string).trim(),
@@ -54,6 +55,7 @@ function readEmpresaInput(formData: FormData): EmpresaInput {
     direccion: (formData.get("direccion") as string)?.trim() || undefined,
     telefono: (formData.get("telefono") as string)?.trim() || undefined,
     email: (formData.get("email") as string)?.trim() || undefined,
+    logobase64,
     activo: formData.get("activo") === "activo",
   }
 }
@@ -67,10 +69,12 @@ export function EmpresasTable() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [isSavingAdd, setIsSavingAdd] = useState(false)
+  const [addLogo, setAddLogo] = useState<string | null>(null)
 
   const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [editLogo, setEditLogo] = useState<string | null>(null)
 
   const [deletingEmpresa, setDeletingEmpresa] = useState<Empresa | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -119,9 +123,10 @@ export function EmpresasTable() {
     setAddError(null)
 
     try {
-      await createEmpresa(readEmpresaInput(formData))
+      await createEmpresa(readEmpresaInput(formData, addLogo))
       await loadEmpresas()
       setIsAddOpen(false)
+      setAddLogo(null)
     } catch (error) {
       setAddError(
         error instanceof EmpresasApiError
@@ -141,7 +146,7 @@ export function EmpresasTable() {
     setEditError(null)
 
     try {
-      await updateEmpresa(editingEmpresa.id, readEmpresaInput(formData))
+      await updateEmpresa(editingEmpresa.id, readEmpresaInput(formData, editLogo))
       await loadEmpresas()
       setEditingEmpresa(null)
     } catch (error) {
@@ -208,7 +213,10 @@ export function EmpresasTable() {
               open={isAddOpen}
               onOpenChange={(open) => {
                 setIsAddOpen(open)
-                if (!open) setAddError(null)
+                if (!open) {
+                  setAddError(null)
+                  setAddLogo(null)
+                }
               }}
             >
               <DialogTrigger asChild>
@@ -226,6 +234,10 @@ export function EmpresasTable() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label>Logo</Label>
+                      <LogoUploader value={addLogo} onChange={setAddLogo} disabled={isSavingAdd} />
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label htmlFor="ruc">RUC</Label>
@@ -307,11 +319,25 @@ export function EmpresasTable() {
                 {filteredEmpresas.map((empresa) => (
                   <TableRow key={empresa.id} className="border-border hover:bg-muted/50">
                     <TableCell>
-                      <div>
-                        <p className="font-medium text-foreground">{empresa.razon_social}</p>
-                        {empresa.nombre_comercial && (
-                          <p className="text-sm text-muted-foreground">{empresa.nombre_comercial}</p>
+                      <div className="flex items-center gap-3">
+                        {empresa.logobase64 ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={empresa.logobase64}
+                            alt={`Logo de ${empresa.razon_social}`}
+                            className="h-8 w-8 shrink-0 rounded-md border border-border object-contain bg-background"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                          </div>
                         )}
+                        <div>
+                          <p className="font-medium text-foreground">{empresa.razon_social}</p>
+                          {empresa.nombre_comercial && (
+                            <p className="text-sm text-muted-foreground">{empresa.nombre_comercial}</p>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-foreground">{empresa.ruc}</TableCell>
@@ -336,7 +362,12 @@ export function EmpresasTable() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-popover border-border">
-                          <DropdownMenuItem onClick={() => setEditingEmpresa(empresa)}>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingEmpresa(empresa)
+                              setEditLogo(empresa.logobase64)
+                            }}
+                          >
                             <Pencil className="mr-2 h-4 w-4" />
                             Editar
                           </DropdownMenuItem>
@@ -375,6 +406,7 @@ export function EmpresasTable() {
           if (!open) {
             setEditingEmpresa(null)
             setEditError(null)
+            setEditLogo(null)
           }
         }}
       >
@@ -388,6 +420,10 @@ export function EmpresasTable() {
             </DialogHeader>
             {editingEmpresa && (
               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Logo</Label>
+                  <LogoUploader value={editLogo} onChange={setEditLogo} disabled={isSavingEdit} />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="edit-ruc">RUC</Label>

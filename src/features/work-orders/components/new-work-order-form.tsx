@@ -66,7 +66,7 @@ export function NewWorkOrderForm() {
     let isMounted = true
 
     async function loadCatalogs() {
-      if (!sessionScope.empresa_id) {
+      if (!sessionScope.empresa_id || !sessionScope.sucursal_id) {
         setBrokers([])
         setAseguradoras([])
         setCatalogError(null)
@@ -78,8 +78,14 @@ export function NewWorkOrderForm() {
 
       try {
         const [brokersResult, aseguradorasResult] = await Promise.allSettled([
-          brokersService.listBrokersByEmpresa(sessionScope.empresa_id),
-          aseguradorasService.listAseguradorasByEmpresa(sessionScope.empresa_id),
+          brokersService.listBrokersByEmpresaSucursal(
+            sessionScope.empresa_id,
+            sessionScope.sucursal_id
+          ),
+          aseguradorasService.listAseguradorasByEmpresaSucursal(
+            sessionScope.empresa_id,
+            sessionScope.sucursal_id
+          ),
         ])
 
         if (isMounted) {
@@ -113,7 +119,7 @@ export function NewWorkOrderForm() {
     return () => {
       isMounted = false
     }
-  }, [sessionScope.empresa_id])
+  }, [sessionScope.empresa_id, sessionScope.sucursal_id])
 
   function updateVehicleField(field: keyof typeof vehicleForm, value: string) {
     setVehicleForm((currentForm) => ({

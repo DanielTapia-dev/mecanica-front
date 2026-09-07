@@ -213,7 +213,7 @@ export function canAccessConsultaCliente(user: AuthUser | null | undefined) {
 }
 
 export function canAccessEncuestas(user: AuthUser | null | undefined) {
-  return hasAnyRole(user, ["ADMIN"])
+  return hasAnyRole(user, ["ADMIN", "ASESOR"])
 }
 
 export function canCreateWorkOrders(user: AuthUser | null | undefined) {

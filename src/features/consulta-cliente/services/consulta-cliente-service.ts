@@ -32,3 +32,18 @@ export async function fetchSeguimientoPorPlaca(placa: string) {
 
   return payload as SeguimientoOrdenResponse
 }
+
+export async function fetchLogoPublico() {
+  try {
+    const response = await fetch("/api/consulta-cliente/logo", { cache: "no-store" })
+    const payload = await parseJson(response)
+
+    if (!response.ok) {
+      return null
+    }
+
+    return (payload as { logo_base64?: string | null } | null)?.logo_base64 ?? null
+  } catch {
+    return null
+  }
+}

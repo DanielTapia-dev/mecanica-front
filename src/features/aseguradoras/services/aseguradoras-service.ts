@@ -8,6 +8,8 @@ export const aseguradorasApiPaths = {
   aseguradorasActive: `${API_BASE_PATH}/aseguradoras/activas`,
   aseguradorasByEmpresa: (empresaId: string) =>
     `${API_BASE_PATH}/empresa/${empresaId}/aseguradoras`,
+  aseguradorasByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/aseguradoras`,
   aseguradora: (aseguradoraId: string) => `${API_BASE_PATH}/aseguradora/${aseguradoraId}`,
   createAseguradora: `${API_BASE_PATH}/aseguradora`,
   aseguradoraActivo: (aseguradoraId: string) =>
@@ -223,6 +225,20 @@ export const aseguradorasService = {
   ): Promise<Aseguradora[]> {
     const payload = await requestAseguradorasApi<unknown>(
       aseguradorasApiPaths.aseguradorasByEmpresa(empresaId),
+      options
+    )
+    return getListData<unknown>(payload, ["aseguradoras", "data"])
+      .map((aseguradora) => normalizeAseguradora(aseguradora))
+      .filter((aseguradora): aseguradora is Aseguradora => Boolean(aseguradora))
+  },
+
+  async listAseguradorasByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: AseguradorasRequestOptions
+  ): Promise<Aseguradora[]> {
+    const payload = await requestAseguradorasApi<unknown>(
+      aseguradorasApiPaths.aseguradorasByEmpresaSucursal(empresaId, sucursalId),
       options
     )
     return getListData<unknown>(payload, ["aseguradoras", "data"])

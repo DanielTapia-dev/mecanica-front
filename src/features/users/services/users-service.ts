@@ -5,6 +5,8 @@ const API_BASE_PATH = "/api/mecanica"
 
 export const usersApiPaths = {
   usuarios: `${API_BASE_PATH}/usuarios`,
+  usuariosBySucursal: (sucursalId: string) =>
+    `${API_BASE_PATH}/sucursal/${sucursalId}/usuarios`,
   usuario: (usuarioId: string) => `${API_BASE_PATH}/usuario/${usuarioId}`,
   createUsuario: `${API_BASE_PATH}/usuario`,
   roles: `${API_BASE_PATH}/roles`,
@@ -121,6 +123,17 @@ export async function requestUsersApi<T>(path: string, options: UsersRequestOpti
 export const usersService = {
   async listUsuarios(options?: UsersRequestOptions): Promise<Usuario[]> {
     const payload = await requestUsersApi<unknown>(usersApiPaths.usuarios, options)
+    return getListData<Usuario>(payload, ["usuarios", "data"])
+  },
+
+  async listUsuariosBySucursal(
+    sucursalId: string,
+    options?: UsersRequestOptions
+  ): Promise<Usuario[]> {
+    const payload = await requestUsersApi<unknown>(
+      usersApiPaths.usuariosBySucursal(sucursalId),
+      options
+    )
     return getListData<Usuario>(payload, ["usuarios", "data"])
   },
 

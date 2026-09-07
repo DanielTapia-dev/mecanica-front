@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react"
 import { isAuthUser } from "./auth-validation"
-import { getDefaultPathForUser } from "./permissions"
+import { getDefaultPathForUser, hasAnyRole } from "./permissions"
 import {
   createEmptyUserRoleStatePermissions,
   loadUserRoleStatePermissions,
@@ -29,14 +29,21 @@ interface LoginResult {
   redirectTo?: string
 }
 
+interface ActiveSucursal {
+  id: string
+  nombre?: string
+}
+
 interface AuthContextType {
   user: AuthUser | null
   sessionScope: AuthSessionScope
-  login: (email: string, password: string) => Promise<LoginResult>
+  login: (username: string, password: string) => Promise<LoginResult>
   logout: () => void
   isLoading: boolean
   roleStatePermissions: UserRoleStatePermissions
   roleStateAccessError: string | null
+  canSwitchSucursal: boolean
+  switchSucursal: (sucursalId: string, sucursalNombre?: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -71,7 +78,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleStateAccessError, setRoleStateAccessError] = useState<string | null>(
     null
   )
-  const sessionScope = useMemo(() => buildAuthSessionScope(user), [user])
+  const [activeSucursal, setActiveSucursal] = useState<ActiveSucursal | null>(null)
+  const baseSessionScope = useMemo(() => buildAuthSessionScope(user), [user])
+  const canSwitchSucursal = hasAnyRole(user, ["ADMIN"])
+  const sessionScope = useMemo<AuthSessionScope>(() => {
+    if (!activeSucursal) {
+      return baseSessionScope
+    }
+
+    return {
+      ...baseSessionScope,
+      sucursal_id: activeSucursal.id,
+      sucursal_nombre: activeSucursal.nombre ?? baseSessionScope.sucursal_nombre,
+    }
+  }, [baseSessionScope, activeSucursal])
+
+  const switchSucursal = (sucursalId: string, sucursalNombre?: string) => {
+    if (!canSwitchSucursal) {
+      return
+    }
+
+    setActiveSucursal({ id: sucursalId, nombre: sucursalNombre })
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -101,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             resetUnauthorizedSessionNotification()
             setRoleStatePermissions(roleStateAccess.permissions)
             setRoleStateAccessError(roleStateAccess.error)
+            setActiveSucursal(null)
             setUser(payload.user)
           }
         }
@@ -123,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       setRoleStatePermissions(createEmptyUserRoleStatePermissions())
       setRoleStateAccessError(null)
+      setActiveSucursal(null)
       clearLegacyAuthStorage()
       void fetch("/api/auth/logout", {
         method: "POST",
@@ -140,14 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (email: string, password: string): Promise<LoginResult> => {
+  const login = async (username: string, password: string): Promise<LoginResult> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       })
 
       const payload = (await response.json()) as {
@@ -158,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!response.ok || !payload.user) {
         return {
           success: false,
-          message: payload.message ?? "Correo o contrasena incorrectos.",
+          message: payload.message ?? "Usuario o contrasena incorrectos.",
         }
       }
 
@@ -167,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetUnauthorizedSessionNotification()
       setRoleStatePermissions(roleStateAccess.permissions)
       setRoleStateAccessError(roleStateAccess.error)
+      setActiveSucursal(null)
       setUser(payload.user)
       clearLegacyAuthStorage()
 
@@ -190,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
     setRoleStatePermissions(createEmptyUserRoleStatePermissions())
     setRoleStateAccessError(null)
+    setActiveSucursal(null)
     clearLegacyAuthStorage()
     void fetch("/api/auth/logout", {
       method: "POST",
@@ -206,6 +238,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         roleStatePermissions,
         roleStateAccessError,
+        canSwitchSucursal,
+        switchSucursal,
       }}
     >
       {children}
