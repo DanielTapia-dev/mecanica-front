@@ -1,0 +1,14 @@
+**
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!next.config.*
+!next-env.d.ts
+!tsconfig.json
+!postcss.config.mjs
+!eslint.config.mjs
+!src/
+!src/**
+!public/
+!public/**
+!Dockerfile
