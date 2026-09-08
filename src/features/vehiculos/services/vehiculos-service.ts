@@ -24,6 +24,7 @@ async function parseJson(response: Response) {
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },

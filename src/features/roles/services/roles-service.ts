@@ -101,6 +101,7 @@ export async function requestRolesApi<T>(path: string, options: RolesRequestOpti
 
   const response = await fetch(path, {
     ...init,
+    credentials: "include",
     headers: requestHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: init.cache ?? "no-store",
