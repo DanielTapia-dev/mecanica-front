@@ -7,8 +7,6 @@ export const brokersApiPaths = {
   brokers: `${API_BASE_PATH}/brokers`,
   brokersActive: `${API_BASE_PATH}/brokers/activos`,
   brokersByEmpresa: (empresaId: string) => `${API_BASE_PATH}/empresa/${empresaId}/brokers`,
-  brokersByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
-    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/brokers`,
   broker: (brokerId: string) => `${API_BASE_PATH}/broker/${brokerId}`,
   createBroker: `${API_BASE_PATH}/broker`,
   brokerActivo: (brokerId: string) => `${API_BASE_PATH}/broker/${brokerId}/activo`,
@@ -170,6 +168,7 @@ export async function requestBrokersApi<T>(
 
   const response = await fetch(path, {
     ...init,
+    credentials: "include",
     headers: requestHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: init.cache ?? "no-store",
@@ -209,20 +208,6 @@ export const brokersService = {
   ): Promise<Broker[]> {
     const payload = await requestBrokersApi<unknown>(
       brokersApiPaths.brokersByEmpresa(empresaId),
-      options
-    )
-    return getListData<unknown>(payload, ["brokers", "data"])
-      .map((broker) => normalizeBroker(broker))
-      .filter((broker): broker is Broker => Boolean(broker))
-  },
-
-  async listBrokersByEmpresaSucursal(
-    empresaId: string,
-    sucursalId: string,
-    options?: BrokersRequestOptions
-  ): Promise<Broker[]> {
-    const payload = await requestBrokersApi<unknown>(
-      brokersApiPaths.brokersByEmpresaSucursal(empresaId, sucursalId),
       options
     )
     return getListData<unknown>(payload, ["brokers", "data"])

@@ -24,6 +24,7 @@ async function parseJson(response: Response) {
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -47,9 +48,9 @@ export function fetchVehiculos() {
   return request<VehiculosListResponse>("/api/vehiculos")
 }
 
-export function fetchVehiculosByEmpresaSucursal(empresaId: string, sucursalId: string) {
+export function fetchVehiculosBySucursal(sucursalId: string) {
   return request<VehiculosListResponse>(
-    `/api/mecanica/empresa/${empresaId}/sucursal/${sucursalId}/vehiculos`
+    `/api/mecanica/sucursal/${sucursalId}/vehiculos`
   )
 }
 

@@ -191,19 +191,13 @@ export function canAccessCurrentProcessState(
 export async function loadProcessStateAccess(
   user: AuthUser,
   token?: string,
-  authorizedProcessStateIds?: Set<string>,
-  sucursalId?: string
+  authorizedProcessStateIds?: Set<string>
 ): Promise<ProcessStateAccess> {
   const empresaId = user.empresaId ?? user.empresa_id
-  const effectiveSucursalId = sucursalId ?? user.sucursalId ?? user.sucursal_id
   const [processStates, roleStatePermissions] = await Promise.all([
-    empresaId && effectiveSucursalId
-      ? estadosProcesoService.listEstadosProcesoByEmpresaSucursal(empresaId, effectiveSucursalId, {
-          token,
-        })
-      : empresaId
-        ? estadosProcesoService.listEstadosProcesoByEmpresa(empresaId, { token })
-        : estadosProcesoService.listEstadosProceso({ token }),
+    empresaId
+      ? estadosProcesoService.listEstadosProcesoByEmpresa(empresaId, { token })
+      : estadosProcesoService.listEstadosProceso({ token }),
     authorizedProcessStateIds
       ? Promise.resolve({
           allowedProcessStateIds: authorizedProcessStateIds,

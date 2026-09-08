@@ -35,8 +35,9 @@ export async function proxyToMecanicaBackend(
     request.headers.get("cookie"),
     AUTH_TOKEN_COOKIE_NAME
   )
+  const requestAuthorization = request.headers.get("authorization")?.trim()
   const authorization =
-    request.headers.get("authorization") ??
+    requestAuthorization ||
     (sessionToken ? `Bearer ${sessionToken}` : undefined)
   const hasBody = method === "POST" || method === "PUT"
 

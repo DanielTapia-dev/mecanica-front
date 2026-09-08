@@ -20,6 +20,25 @@ export function createEmptyUserRoleStatePermissions(): UserRoleStatePermissions 
   }
 }
 
+export function readEmbeddedRoleStatePermissions(
+  user: AuthUser
+): UserRoleStatePermissions | undefined {
+  if (!user.roles.some((role) => role.estados !== undefined)) {
+    return undefined
+  }
+
+  const allowedProcessStateIds = new Set(
+    user.roles.flatMap((role) =>
+      (role.estados ?? []).map((state) => String(state.id))
+    )
+  )
+
+  return {
+    allowedProcessStateIds,
+    hasWorkOrdersAccess: allowedProcessStateIds.size > 0,
+  }
+}
+
 export async function loadUserRoleStatePermissions(
   user: AuthUser,
   token?: string

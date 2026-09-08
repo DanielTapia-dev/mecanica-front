@@ -13,6 +13,7 @@ import { getDefaultPathForUser, hasAnyRole } from "./permissions"
 import {
   createEmptyUserRoleStatePermissions,
   loadUserRoleStatePermissions,
+  readEmbeddedRoleStatePermissions,
   type UserRoleStatePermissions,
 } from "./role-state-permissions"
 import { buildAuthSessionScope } from "./session-scope"
@@ -55,6 +56,15 @@ function getRoleStateAccessError(error: unknown) {
 }
 
 async function resolveRoleStatePermissions(user: AuthUser) {
+  const embeddedPermissions = readEmbeddedRoleStatePermissions(user)
+
+  if (embeddedPermissions) {
+    return {
+      permissions: embeddedPermissions,
+      error: null,
+    }
+  }
+
   try {
     return {
       permissions: await loadUserRoleStatePermissions(user),
@@ -110,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const response = await fetch("/api/auth/session", {
           cache: "no-store",
+          credentials: "include",
         })
 
         if (!isMounted) {
@@ -156,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearLegacyAuthStorage()
       void fetch("/api/auth/logout", {
         method: "POST",
+        credentials: "include",
       }).finally(() => {
         if (window.location.pathname !== "/") {
           window.location.assign("/")
@@ -174,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -225,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLegacyAuthStorage()
     void fetch("/api/auth/logout", {
       method: "POST",
+      credentials: "include",
     })
   }
 
