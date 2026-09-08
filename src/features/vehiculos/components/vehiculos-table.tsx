@@ -42,7 +42,7 @@ import {
   VehiculosApiError,
   createVehiculo,
   deleteVehiculo,
-  fetchVehiculosBySucursal,
+  fetchVehiculosByEmpresaSucursal,
   updateVehiculo,
 } from "@/features/vehiculos/services/vehiculos-service"
 import type { Vehiculo, VehiculoInput } from "@/features/vehiculos/types"
@@ -117,7 +117,7 @@ export function VehiculosTable() {
 
     try {
       const [vehiculosData, clientesData] = await Promise.all([
-        fetchVehiculosBySucursal(sucursalId),
+        fetchVehiculosByEmpresaSucursal(empresaId, sucursalId),
         fetchClientes(),
       ])
       setVehiculos(vehiculosData.vehiculos)
