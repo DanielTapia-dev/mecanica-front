@@ -15,7 +15,18 @@ export function getAuthCookieOptions(maxAge = AUTH_COOKIE_MAX_AGE_SECONDS) {
 }
 
 export function encodeAuthUserCookie(user: AuthUser) {
-  return Buffer.from(JSON.stringify(user), "utf8").toString("base64url")
+  const sessionUser: AuthUser = {
+    ...user,
+    roles: user.roles.map((role) => ({
+      id: role.id,
+      rol_id: role.rol_id,
+      codigo: role.codigo,
+      nombre: role.nombre,
+      tipo_rol: role.tipo_rol,
+    })),
+  }
+
+  return Buffer.from(JSON.stringify(sessionUser), "utf8").toString("base64url")
 }
 
 export function decodeAuthUserCookie(value?: string) {
