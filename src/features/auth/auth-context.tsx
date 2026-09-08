@@ -37,7 +37,7 @@ interface ActiveSucursal {
 interface AuthContextType {
   user: AuthUser | null
   sessionScope: AuthSessionScope
-  login: (email: string, password: string) => Promise<LoginResult>
+  login: (username: string, password: string) => Promise<LoginResult>
   logout: () => void
   isLoading: boolean
   roleStatePermissions: UserRoleStatePermissions
@@ -170,14 +170,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (email: string, password: string): Promise<LoginResult> => {
+  const login = async (username: string, password: string): Promise<LoginResult> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       })
 
       const payload = (await response.json()) as {
