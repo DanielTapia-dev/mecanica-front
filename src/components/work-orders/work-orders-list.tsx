@@ -387,8 +387,7 @@ export function WorkOrdersList() {
         const result = await loadProcessStateAccess(
           user,
           undefined,
-          roleStatePermissions.allowedProcessStateIds,
-          scopeSucursalId
+          roleStatePermissions.allowedProcessStateIds
         )
 
         if (isMounted) {
