@@ -99,7 +99,19 @@ export function SucursalesTable() {
   }
 
   useEffect(() => {
-    loadData().finally(() => setIsLoading(false))
+    let active = true
+    Promise.all([fetchSucursales(), fetchEmpresas()])
+      .then((data) => {
+        if (!active) return
+        setSucursales(data[0].sucursales)
+        setEmpresas(data[1].empresas)
+        setLoadError(null)
+      })
+      .catch((error: unknown) => {
+        if (active) setLoadError(error instanceof SucursalesApiError ? error.message : "No fue posible cargar los datos.")
+      })
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
   }, [])
 
   const filteredSucursales = sucursales.filter(

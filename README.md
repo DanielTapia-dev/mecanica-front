@@ -122,3 +122,7 @@ Si pnpm reporta scripts de build ignorados para dependencias como `sharp` o `msw
 ```bash
 pnpm rebuild
 ```
+
+## Parallel AWS deployment
+
+See [AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md) for the Phase 7 hostname, runtime settings, validation and pending activation.

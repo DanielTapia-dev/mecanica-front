@@ -95,7 +95,18 @@ export function EmpresasTable() {
   }
 
   useEffect(() => {
-    loadEmpresas().finally(() => setIsLoading(false))
+    let active = true
+    fetchEmpresas()
+      .then((data) => {
+        if (!active) return
+        setEmpresas(data.empresas)
+        setLoadError(null)
+      })
+      .catch((error: unknown) => {
+        if (active) setLoadError(error instanceof EmpresasApiError ? error.message : "No fue posible cargar los datos.")
+      })
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
   }, [])
 
   const filteredEmpresas = empresas.filter(

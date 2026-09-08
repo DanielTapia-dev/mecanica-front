@@ -1,0 +1,88 @@
+name: AWS mecanica-nextjs
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      rollback_test:
+        description: Deploy a failing fixture and verify automatic recovery
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aws-mecanica-nextjs-${{ github.event.pull_request.number || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build and test ARM64 without AWS credentials
+        run: |
+          docker buildx build --platform linux/arm64 --target runtime --load -t "mecanica-nextjs:${GITHUB_SHA}" .
+          python3 scripts/smoke-image.py "mecanica-nextjs:${GITHUB_SHA}"
+
+  deploy:
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      PLATFORM_INSTANCE_ID: ${{ vars.PLATFORM_INSTANCE_ID }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build and smoke test the exact image before AWS authentication
+        run: |
+          docker buildx build --platform linux/arm64 --target runtime --load -t "mecanica-nextjs:${GITHUB_SHA}" .
+          python3 scripts/smoke-image.py "mecanica-nextjs:${GITHUB_SHA}"
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5.1.1
+        with:
+          role-to-assume: ${{ vars.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-1
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: mecanica-nextjs-${{ github.run_id }}
+          role-duration-seconds: 3600
+      - name: Publish immutable commit image
+        run: |
+          set -euo pipefail
+          registry="${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          python3 scripts/publish-image.py "mecanica-nextjs:${GITHUB_SHA}" "$GITHUB_SHA"
+      - name: Require completed ECR scan without critical findings
+        run: python3 scripts/check-image-scan.py "$GITHUB_SHA"
+      - name: Deploy and wait for application health
+        run: python3 scripts/deploy-ssm.py
+      - name: Build and publish the failing rollback fixture
+        if: github.event_name == 'workflow_dispatch' && inputs.rollback_test
+        run: |
+          docker buildx build --platform linux/arm64 --load -f scripts/rollback.Dockerfile -t "mecanica-nextjs:${GITHUB_SHA}-rollback-test" .
+          python3 scripts/publish-image.py "mecanica-nextjs:${GITHUB_SHA}-rollback-test" "${GITHUB_SHA}-rollback-test"
+          python3 scripts/check-image-scan.py "${GITHUB_SHA}-rollback-test"
+      - name: Verify automatic rollback after a real health failure
+        if: github.event_name == 'workflow_dispatch' && inputs.rollback_test
+        run: python3 scripts/deploy-ssm.py --rollback-test
+      - name: Verify public HTTPS revision when DNS and TLS have been activated
+        if: vars.PUBLIC_HEALTH_URL != ''
+        env:
+          PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL }}
+        run: python3 scripts/check-public-health.py
+      - name: Remove temporary ECR login
+        if: always()
+        run: docker logout "${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com"
