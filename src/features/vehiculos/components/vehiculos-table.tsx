@@ -42,7 +42,7 @@ import {
   VehiculosApiError,
   createVehiculo,
   deleteVehiculo,
-  fetchVehiculos,
+  fetchVehiculosByEmpresaSucursal,
   updateVehiculo,
 } from "@/features/vehiculos/services/vehiculos-service"
 import type { Vehiculo, VehiculoInput } from "@/features/vehiculos/types"
@@ -110,15 +110,23 @@ export function VehiculosTable() {
   }
 
   const loadData = useCallback(async () => {
+    if (!empresaId || !sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
+      return
+    }
+
     try {
-      const [vehiculosData, clientesData] = await Promise.all([fetchVehiculos(), fetchClientes()])
+      const [vehiculosData, clientesData] = await Promise.all([
+        fetchVehiculosByEmpresaSucursal(empresaId, sucursalId),
+        fetchClientes(),
+      ])
       setVehiculos(vehiculosData.vehiculos)
       setClientes(clientesData.clientes)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los vehículos."))
     }
-  }, [])
+  }, [empresaId, sucursalId])
 
   useEffect(() => {
     let isMounted = true

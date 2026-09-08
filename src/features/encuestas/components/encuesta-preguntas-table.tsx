@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react"
+import { useAuth } from "@/features/auth/auth-context"
 import {
   EncuestasServiceError,
   encuestasService,
@@ -53,11 +54,13 @@ function getErrorMessage(error: unknown, fallback: string) {
 function readCreateInput(
   formData: FormData,
   plantillaId: string,
-  empresaId: string
+  empresaId: string,
+  sucursalId: string
 ): CreateEncuestaPreguntaInput {
   return {
     plantilla_id: plantillaId,
     empresa_id: empresaId,
+    sucursal_id: sucursalId,
     texto_pregunta: (formData.get("texto_pregunta") as string).trim(),
     descripcion_ayuda: (formData.get("descripcion_ayuda") as string)?.trim() || undefined,
     escala_min: Number(formData.get("escala_min")) || 1,
@@ -88,6 +91,9 @@ interface EncuestaPreguntasTableProps {
 }
 
 export function EncuestaPreguntasTable({ plantillaId, empresaId }: EncuestaPreguntasTableProps) {
+  const { sessionScope } = useAuth()
+  const sucursalId = sessionScope.sucursal_id
+
   const [preguntas, setPreguntas] = useState<EncuestaPregunta[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -131,12 +137,20 @@ export function EncuestaPreguntasTable({ plantillaId, empresaId }: EncuestaPregu
 
   const handleAddPregunta = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!sucursalId) {
+      setAddError("No se pudo determinar la sucursal del usuario actual.")
+      return
+    }
+
     const formData = new FormData(e.currentTarget)
     setIsSavingAdd(true)
     setAddError(null)
 
     try {
-      await encuestasService.createPregunta(readCreateInput(formData, plantillaId, empresaId))
+      await encuestasService.createPregunta(
+        readCreateInput(formData, plantillaId, empresaId, sucursalId)
+      )
       await loadPreguntas()
       setIsAddOpen(false)
     } catch (error) {

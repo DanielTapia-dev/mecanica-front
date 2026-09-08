@@ -53,9 +53,14 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof EncuestasServiceError ? error.message : fallback
 }
 
-function readCreateInput(formData: FormData, empresaId: string): CreateEncuestaPlantillaInput {
+function readCreateInput(
+  formData: FormData,
+  empresaId: string,
+  sucursalId: string
+): CreateEncuestaPlantillaInput {
   return {
     empresa_id: empresaId,
+    sucursal_id: sucursalId,
     nombre: (formData.get("nombre") as string).trim(),
     descripcion: (formData.get("descripcion") as string)?.trim() || undefined,
     vigente_desde: (formData.get("vigente_desde") as string) || undefined,
@@ -77,6 +82,7 @@ function readUpdateInput(formData: FormData): UpdateEncuestaPlantillaInput {
 export function EncuestaPlantillasTable() {
   const { sessionScope } = useAuth()
   const empresaId = sessionScope.empresa_id
+  const sucursalId = sessionScope.sucursal_id
 
   const [plantillas, setPlantillas] = useState<EncuestaPlantilla[]>([])
   const [search, setSearch] = useState("")
@@ -98,16 +104,19 @@ export function EncuestaPlantillasTable() {
   const [preguntasPlantilla, setPreguntasPlantilla] = useState<EncuestaPlantilla | null>(null)
 
   const loadPlantillas = useCallback(async () => {
-    if (!empresaId) return
+    if (!empresaId || !sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
+      return
+    }
 
     try {
-      const data = await encuestasService.listPlantillasByEmpresa(empresaId)
+      const data = await encuestasService.listPlantillasByEmpresaSucursal(empresaId, sucursalId)
       setPlantillas(data)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar las plantillas de encuesta."))
     }
-  }, [empresaId])
+  }, [empresaId, sucursalId])
 
   useEffect(() => {
     let isMounted = true
@@ -131,8 +140,8 @@ export function EncuestaPlantillasTable() {
   const handleAddPlantilla = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    if (!empresaId) {
-      setAddError("No se pudo determinar la empresa del usuario actual.")
+    if (!empresaId || !sucursalId) {
+      setAddError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
 
@@ -141,7 +150,7 @@ export function EncuestaPlantillasTable() {
     setAddError(null)
 
     try {
-      await encuestasService.createPlantilla(readCreateInput(formData, empresaId))
+      await encuestasService.createPlantilla(readCreateInput(formData, empresaId, sucursalId))
       await loadPlantillas()
       setIsAddOpen(false)
     } catch (error) {

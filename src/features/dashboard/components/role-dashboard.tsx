@@ -56,7 +56,7 @@ function ReceptionActionsGrid() {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <ReceptionActionCard
-        badge="Orden"
+        badge="SeRGi Track in"
         description="Crear orden desde placa, cliente y motivo."
         href="/ordenes/nueva"
         icon={<CarFront className="size-5" />}
@@ -64,12 +64,12 @@ function ReceptionActionsGrid() {
         title="Ingresar vehiculo"
       />
       <ReceptionActionCard
-        badge="Ordenes"
+        badge="SeRGi Track in"
         description="Revisar ordenes existentes por fecha reciente."
         href="/ordenes"
         icon={<ClipboardList className="size-5" />}
         label="Ver lista"
-        title="Lista de Ordenes"
+        title="Lista de SeRGi Track in"
       />
     </div>
   )

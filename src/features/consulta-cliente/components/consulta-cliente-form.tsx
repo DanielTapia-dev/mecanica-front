@@ -1,10 +1,16 @@
 "use client"
 
-import { useState } from "react"
-import { ClipboardCheck, Loader2, Search, Wrench } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { useEffect, useState } from "react"
+import {
+  Car,
+  CheckCircle2,
+  ClipboardCheck,
+  HeartHandshake,
+  Loader2,
+  Search,
+  Wrench,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -12,27 +18,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 import { EncuestaSatisfaccionForm } from "@/features/encuestas/components/encuesta-satisfaccion-form"
+import { getProcessStateVisual } from "@/features/work-orders/process-state-visuals"
 import {
   ConsultaClienteApiError,
+  fetchLogoPublico,
   fetchSeguimientoPorPlaca,
 } from "../services/consulta-cliente-service"
 import type { SeguimientoOrden } from "../types"
-
-const tipoRegistroLabels: Record<string, string> = {
-  ESTADO_ACTUAL: "Estado actual",
-  HISTORIAL: "Historial",
-}
 
 export function ConsultaClienteForm() {
   const [placa, setPlaca] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultados, setResultados] = useState<SeguimientoOrden[] | null>(null)
+  const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [isEncuestaOpen, setIsEncuestaOpen] = useState(false)
   const [encuestaCompletada, setEncuestaCompletada] = useState(false)
+
+  useEffect(() => {
+    fetchLogoPublico().then(setLogoBase64)
+  }, [])
 
   const registroInfo = resultados && resultados.length > 0 ? resultados[0] : null
   const estadoActual =
@@ -69,115 +76,165 @@ export function ConsultaClienteForm() {
   }
 
   return (
-    <div className="w-full max-w-2xl space-y-6">
-      <div className="flex flex-col items-center gap-1 text-center">
-        <div className="flex items-center gap-2">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary">
-            <Wrench className="size-5 text-primary-foreground" />
-          </div>
-          <span className="text-lg font-semibold text-foreground">
-            {registroInfo?.empresa_nombre ?? "AutoTaller Pro"}
-          </span>
-        </div>
-        {registroInfo?.sucursal_nombre ? (
-          <span className="text-sm text-muted-foreground">
-            {registroInfo.sucursal_nombre}
-          </span>
-        ) : null}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Consulta de estado del vehículo</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="placa">Placa del vehículo</Label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="placa"
-                placeholder="Ej. ABC-1234"
-                value={placa}
-                onChange={(event) => setPlaca(event.target.value.toUpperCase())}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleConsultar()
-                  }
-                }}
-              />
-              <Button onClick={handleConsultar} disabled={loading} className="sm:w-auto">
-                {loading ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <Search />
-                )}
-                Consultar Estado
-              </Button>
-            </div>
-          </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </CardContent>
-      </Card>
-
-      {resultados && resultados.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground">
-          No se encontraron resultados para la placa ingresada.
-        </p>
-      ) : null}
-
-      {resultados && resultados.length > 0 && registroInfo ? (
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="flex items-center justify-end gap-2">
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Placa</p>
-                <p className="text-base font-semibold text-foreground">
-                  {registroInfo.vehiculo_placa}
-                </p>
+    <div className="mx-auto flex w-full max-w-sm flex-col sm:max-w-xl md:max-w-2xl">
+      <div className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-green-700 via-green-800 to-green-950 px-6 pt-8 pb-8 text-center text-white shadow-lg sm:px-10 sm:pt-10 sm:pb-10">
+        <div
+          className="absolute -top-10 -right-10 size-28 rotate-45 bg-red-600/90 sm:size-36 md:size-40"
+          aria-hidden="true"
+        />
+        <div className="relative">
+          {logoBase64 ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoBase64}
+              alt={registroInfo?.empresa_nombre ?? "Logo de la empresa"}
+              className="mx-auto h-20 w-auto max-w-[70%] rounded-xl bg-white/95 object-contain p-2 shadow-md sm:h-24 md:h-28"
+            />
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-white/15 sm:size-11">
+                <Wrench className="size-5 sm:size-6" />
               </div>
-            </CardContent>
-          </Card>
-
-          {resultados.map((registro, index) => (
-            <Card key={`${registro.orden_id}-${registro.tipo_registro}-${index}`}>
-              <CardHeader className="flex flex-row items-center justify-between gap-2">
-                <CardTitle className="text-base">{registro.estado_nombre}</CardTitle>
-                <Badge
-                  variant={
-                    registro.tipo_registro === "ESTADO_ACTUAL" ? "default" : "outline"
-                  }
-                >
-                  {tipoRegistroLabels[registro.tipo_registro] ?? registro.tipo_registro}
-                </Badge>
-              </CardHeader>
-              {registro.mensaje_cliente ? (
-                <CardContent>
-                  <p className="rounded-lg bg-muted/50 p-3 text-sm text-foreground">
-                    {registro.mensaje_cliente}
-                  </p>
-                </CardContent>
-              ) : null}
-            </Card>
-          ))}
-
-          {mostrarBotonEncuesta ? (
-            <Button
-              onClick={() => setIsEncuestaOpen(true)}
-              variant="outline"
-              className="w-full gap-2"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              Realizar encuesta de satisfacción
-            </Button>
-          ) : null}
-
-          {encuestaCompletada ? (
-            <p className="text-center text-sm text-muted-foreground">
-              ¡Gracias por completar la encuesta de satisfacción!
+              <span className="text-lg font-extrabold tracking-tight uppercase sm:text-xl md:text-2xl">
+                {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
+              </span>
+            </div>
+          )}
+          {logoBase64 ? (
+            <p className="mt-2 text-lg font-extrabold tracking-tight uppercase sm:mt-3 sm:text-xl md:text-2xl">
+              {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
             </p>
           ) : null}
+          {registroInfo?.sucursal_nombre ? (
+            <p className="mt-1 text-sm font-medium text-green-100 sm:text-base">
+              {registroInfo.sucursal_nombre}
+            </p>
+          ) : (
+            <p className="mt-1 text-sm font-medium text-green-100 sm:text-base">
+              Seguimiento de tu vehículo
+            </p>
+          )}
         </div>
-      ) : null}
+      </div>
+
+      <div className="mt-5 space-y-5 px-5 sm:px-10">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-2 py-2 shadow-md sm:mx-auto sm:max-w-md sm:py-2.5">
+          <Search className="ml-2 size-4 shrink-0 text-muted-foreground" />
+          <input
+            id="placa"
+            placeholder="Ingresa la placa del vehículo"
+            autoComplete="off"
+            value={placa}
+            onChange={(event) => setPlaca(event.target.value.toUpperCase())}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                handleConsultar()
+              }
+            }}
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground sm:text-base"
+          />
+          <Button
+            onClick={handleConsultar}
+            disabled={loading}
+            size="icon"
+            className="size-9 shrink-0 rounded-full bg-green-700 hover:bg-green-800"
+          >
+            {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+          </Button>
+        </div>
+        {error ? <p className="px-2 text-center text-sm text-destructive">{error}</p> : null}
+
+        {resultados && resultados.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground">
+            No se encontraron resultados para la placa ingresada.
+          </p>
+        ) : null}
+
+        {resultados && resultados.length > 0 && registroInfo ? (
+          <div className="space-y-5">
+            <div className="flex items-center justify-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-medium text-green-900 sm:py-2.5 sm:text-base dark:bg-green-950/40 dark:text-green-100">
+              <Car className="size-4 text-green-700 sm:size-5 dark:text-green-400" />
+              {registroInfo.vehiculo_placa}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-green-600" />
+              <span className="text-xs font-semibold tracking-wide text-green-800 uppercase dark:text-green-300">
+                Estado del proceso
+              </span>
+              <span className="h-px flex-1 bg-red-600" />
+            </div>
+
+            <div className="space-y-3">
+              {resultados.map((registro, index) => {
+                const esActual = registro.tipo_registro === "ESTADO_ACTUAL"
+                const visual = getProcessStateVisual(registro.estado_codigo)
+                const StateIcon = visual.Icon
+
+                return (
+                  <div
+                    key={`${registro.orden_id}-${registro.tipo_registro}-${index}`}
+                    className={cn(
+                      "flex items-start gap-3 rounded-2xl px-4 py-3.5 shadow-sm transition-colors sm:px-5 sm:py-4",
+                      esActual
+                        ? "bg-gradient-to-r from-green-700 to-green-600 text-white"
+                        : "border border-border bg-card text-foreground"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "flex size-9 shrink-0 items-center justify-center rounded-full sm:size-10",
+                        esActual ? "bg-white/15" : visual.iconBg
+                      )}
+                    >
+                      <StateIcon
+                        className={cn(
+                          "size-[18px] sm:size-5",
+                          esActual ? "text-white" : visual.iconText
+                        )}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold sm:text-base">{registro.estado_nombre}</p>
+                      {registro.mensaje_cliente &&
+                      !(registro.es_final && registro.encuesta_realizada) ? (
+                        <p
+                          className={cn(
+                            "mt-0.5 text-xs sm:text-sm",
+                            esActual ? "text-green-50/90" : "text-muted-foreground"
+                          )}
+                        >
+                          {registro.mensaje_cliente}
+                        </p>
+                      ) : null}
+                    </div>
+                    {!esActual ? (
+                      <CheckCircle2 className="size-[18px] shrink-0 text-red-600 sm:size-5" />
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+
+            {mostrarBotonEncuesta ? (
+              <Button
+                onClick={() => setIsEncuestaOpen(true)}
+                className="w-full gap-2 rounded-full bg-gradient-to-r from-red-600 to-red-700 text-white shadow-md shadow-red-600/30 hover:from-red-700 hover:to-red-800 sm:h-10 sm:text-base"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                Realizar encuesta de satisfacción
+              </Button>
+            ) : null}
+
+            {encuestaCompletada ? (
+              <div className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-700 to-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm sm:text-base">
+                <HeartHandshake className="size-4" />
+                ¡Gracias por completar la encuesta de satisfacción!
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <Dialog open={isEncuestaOpen} onOpenChange={setIsEncuestaOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
