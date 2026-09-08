@@ -102,6 +102,7 @@ export async function requestUsersApi<T>(path: string, options: UsersRequestOpti
 
   const response = await fetch(path, {
     ...init,
+    credentials: "include",
     headers: requestHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: init.cache ?? "no-store",

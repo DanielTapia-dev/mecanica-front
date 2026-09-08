@@ -31,9 +31,12 @@ function getForwardHeaders(request: Request) {
     request.headers.get("cookie"),
     AUTH_TOKEN_COOKIE_NAME
   )
+  const requestAuthorization = headers.get("authorization")?.trim()
 
-  if (sessionToken && !headers.has("authorization")) {
+  if (sessionToken && !requestAuthorization) {
     headers.set("authorization", `Bearer ${sessionToken}`)
+  } else if (!requestAuthorization) {
+    headers.delete("authorization")
   }
 
   headers.delete("host")

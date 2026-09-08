@@ -311,6 +311,14 @@ export async function POST(request: Request) {
   const token =
     readString(dataRecord, ["token", "accessToken", "access_token", "jwt"]) ??
     readString(payloadRecord, ["token", "accessToken", "access_token", "jwt"])
+
+  if (!token) {
+    return NextResponse.json(
+      { message: "El backend no entrego un token de sesion." },
+      { status: 502 }
+    )
+  }
+
   const tokenRecord = readJwtPayload(token) ?? {}
   const nombre = readString(userRecord, ["nombre"])
   const apellido = readString(userRecord, ["apellido"])
@@ -372,17 +380,12 @@ export async function POST(request: Request) {
   }
   const response = NextResponse.json({ user })
 
-  if (token) {
-    response.cookies.set(AUTH_TOKEN_COOKIE_NAME, token, getAuthCookieOptions())
-    response.cookies.set(
-      AUTH_USER_COOKIE_NAME,
-      encodeAuthUserCookie(user),
-      getAuthCookieOptions()
-    )
-  } else {
-    response.cookies.set(AUTH_TOKEN_COOKIE_NAME, "", getAuthCookieOptions(0))
-    response.cookies.set(AUTH_USER_COOKIE_NAME, "", getAuthCookieOptions(0))
-  }
+  response.cookies.set(AUTH_TOKEN_COOKIE_NAME, token, getAuthCookieOptions())
+  response.cookies.set(
+    AUTH_USER_COOKIE_NAME,
+    encodeAuthUserCookie(user),
+    getAuthCookieOptions()
+  )
 
   return response
 }

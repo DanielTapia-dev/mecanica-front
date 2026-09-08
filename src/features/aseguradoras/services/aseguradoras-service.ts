@@ -178,6 +178,7 @@ export async function requestAseguradorasApi<T>(
 
   const response = await fetch(path, {
     ...init,
+    credentials: "include",
     headers: requestHeaders,
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: init.cache ?? "no-store",
