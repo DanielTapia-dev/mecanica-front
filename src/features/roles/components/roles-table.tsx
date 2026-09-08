@@ -130,7 +130,7 @@ export function RolesTable() {
       const [data, usuarios, estadosList, rolEstadosList] = await Promise.all([
         rolesService.listRolesByEmpresaSucursal(empresaId, sucursalId),
         usersService.listUsuarios(),
-        estadosProcesoService.listEstadosProcesoByEmpresa(empresaId),
+        estadosProcesoService.listEstadosProcesoByEmpresaSucursal(empresaId, sucursalId),
         rolEstadosService.listRolEstadosByEmpresa(empresaId),
       ])
       setRoles(data)
