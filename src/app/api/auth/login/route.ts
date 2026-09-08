@@ -264,12 +264,12 @@ export async function POST(request: Request) {
     )
   }
 
-  const username = readString(credentials, ["username"])
+  const email = readString(credentials, ["email"])
   const password = readString(credentials, ["password"])
 
-  if (!username || !password) {
+  if (!email || !password) {
     return NextResponse.json(
-      { message: "Ingresa tu usuario y contrasena." },
+      { message: "Ingresa correo y contrasena." },
       { status: 400 }
     )
   }
@@ -282,7 +282,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ email, password }),
       cache: "no-store",
     })
   } catch {
@@ -296,7 +296,7 @@ export async function POST(request: Request) {
 
   if (!backendResponse.ok) {
     return NextResponse.json(
-      { message: getMessage(payload) ?? "Usuario o contrasena incorrectos." },
+      { message: getMessage(payload) ?? "Correo o contrasena incorrectos." },
       { status: backendResponse.status }
     )
   }
@@ -362,12 +362,12 @@ export async function POST(request: Request) {
     email:
       readString(userRecord, ["email", "correo"]) ??
       readString(tokenRecord, ["email", "correo"]) ??
-      "",
+      email,
     username:
       readString(userRecord, ["username", "usuario"]) ??
       readString(tokenRecord, ["username", "usuario"]) ??
-      username,
-    name: fullName || username,
+      email,
+    name: fullName || email,
     roles,
   }
   const response = NextResponse.json({ user })
