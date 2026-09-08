@@ -12,7 +12,7 @@ import { Wrench, AlertCircle } from "lucide-react"
 export function LoginForm() {
   const router = useRouter()
   const { login } = useAuth()
-  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -22,9 +22,9 @@ export function LoginForm() {
     setError("")
     setIsLoading(true)
 
-    const result = await login(email, password)
+    const result = await login(username, password)
     if (!result.success) {
-      setError(result.message ?? "Correo o contrasena incorrectos")
+      setError(result.message ?? "Usuario o contrasena incorrectos")
       setIsLoading(false)
       return
     }
@@ -62,15 +62,15 @@ export function LoginForm() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Correo electronico</Label>
+                <Label htmlFor="username">Nombre de usuario</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="usuario@empresa.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="text"
+                  placeholder="nombre.usuario"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
-                  autoComplete="email"
+                  autoComplete="username"
                 />
               </div>
 
