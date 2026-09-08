@@ -24,7 +24,21 @@ http.createServer((req, res) => {
     if (req.url === '/api/mecanica/login' && req.method === 'POST') {
       res.end(JSON.stringify({
         token: 'synthetic-session-token',
-        usuario: { id: '1', username: 'smoke-user', nombre: 'Smoke', activo: true }
+        usuario: {
+          id: '1',
+          username: 'smoke-user',
+          nombre: 'Smoke',
+          activo: true,
+          rol: {
+            id: 'role-1',
+            codigo: 'ADMIN',
+            nombre: 'Administrador',
+            estados: Array.from({ length: 200 }, (_, index) => ({
+              id: 'state-' + index,
+              codigo: 'STATE_' + index
+            }))
+          }
+        }
       }));
       return;
     }
@@ -47,9 +61,13 @@ const origin = 'http://127.0.0.1:3000';
     body: JSON.stringify({ username: 'smoke-user', password: 'smoke-password' })
   });
   if (login.status !== 200) process.exit(1);
+  const loginPayload = await login.json();
+  if (loginPayload.user.roles[0].estados.length !== 200) process.exit(1);
   const setCookies = login.headers.getSetCookie();
   const cookie = setCookies.map(value => value.split(';', 1)[0]).join('; ');
   if (!cookie.includes('mecanica_auth_token=synthetic-session-token') || !cookie.includes('mecanica_auth_user=')) process.exit(1);
+  const userSetCookie = setCookies.find(value => value.startsWith('mecanica_auth_user='));
+  if (!userSetCookie || userSetCookie.length >= 4096) process.exit(1);
   const roles = await fetch(origin + '/api/mecanica/roles', { headers: { Cookie: cookie } });
   if (roles.status !== 200) process.exit(1);
   const userCookie = cookie.split('; ').find(value => value.startsWith('mecanica_auth_user='));
