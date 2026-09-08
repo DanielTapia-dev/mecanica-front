@@ -124,7 +124,7 @@ export function UsersTable() {
     try {
       const [usuariosList, rolesList, sucursalesResponse] = await Promise.all([
         usersService.listUsuariosBySucursal(sucursalId),
-        rolesService.listRolesByEmpresaSucursal(empresaId, sucursalId),
+        rolesService.listRolesByEmpresa(empresaId),
         fetchSucursales(),
       ])
 

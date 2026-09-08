@@ -48,9 +48,9 @@ export function fetchVehiculos() {
   return request<VehiculosListResponse>("/api/vehiculos")
 }
 
-export function fetchVehiculosByEmpresaSucursal(empresaId: string, sucursalId: string) {
+export function fetchVehiculosBySucursal(sucursalId: string) {
   return request<VehiculosListResponse>(
-    `/api/mecanica/empresa/${empresaId}/sucursal/${sucursalId}/vehiculos`
+    `/api/mecanica/sucursal/${sucursalId}/vehiculos`
   )
 }
 

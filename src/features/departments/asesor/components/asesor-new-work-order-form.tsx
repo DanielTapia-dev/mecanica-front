@@ -78,14 +78,8 @@ export function AsesorNewWorkOrderForm() {
 
       try {
         const [brokersResult, aseguradorasResult] = await Promise.allSettled([
-          brokersService.listBrokersByEmpresaSucursal(
-            sessionScope.empresa_id,
-            sessionScope.sucursal_id
-          ),
-          aseguradorasService.listAseguradorasByEmpresaSucursal(
-            sessionScope.empresa_id,
-            sessionScope.sucursal_id
-          ),
+          brokersService.listBrokersByEmpresa(sessionScope.empresa_id),
+          aseguradorasService.listAseguradorasByEmpresa(sessionScope.empresa_id),
         ])
 
         if (isMounted) {

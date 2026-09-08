@@ -221,8 +221,7 @@ export function WorkOrderDetailSummary({ orderId }: WorkOrderDetailSummaryProps)
         const stateAccess = await loadProcessStateAccess(
           user,
           undefined,
-          roleStatePermissions.allowedProcessStateIds,
-          sessionScope.sucursal_id
+          roleStatePermissions.allowedProcessStateIds
         )
 
         if (isMounted) {
