@@ -121,16 +121,16 @@ export function RolesTable() {
   const [isSavingEstados, setIsSavingEstados] = useState(false)
 
   const loadRoles = useCallback(async () => {
-    if (!empresaId) {
-      setLoadError("No se pudo determinar la empresa del usuario actual.")
+    if (!empresaId || !sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
 
     try {
       const [data, usuarios, estadosList, rolEstadosList] = await Promise.all([
-        rolesService.listRolesByEmpresa(empresaId),
+        rolesService.listRolesByEmpresaSucursal(empresaId, sucursalId),
         usersService.listUsuarios(),
-        estadosProcesoService.listEstadosProcesoByEmpresa(empresaId),
+        estadosProcesoService.listEstadosProcesoByEmpresaSucursal(empresaId, sucursalId),
         rolEstadosService.listRolEstadosByEmpresa(empresaId),
       ])
       setRoles(data)
@@ -148,7 +148,7 @@ export function RolesTable() {
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los roles."))
     }
-  }, [empresaId])
+  }, [empresaId, sucursalId])
 
   useEffect(() => {
     let isMounted = true

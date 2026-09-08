@@ -7,6 +7,8 @@ export const usersApiPaths = {
   usuarios: `${API_BASE_PATH}/usuarios`,
   usuariosBySucursal: (sucursalId: string) =>
     `${API_BASE_PATH}/sucursal/${sucursalId}/usuarios`,
+  usuariosByEmpresaSucursal: (empresaId: string, sucursalId: string) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/usuarios`,
   usuario: (usuarioId: string) => `${API_BASE_PATH}/usuario/${usuarioId}`,
   createUsuario: `${API_BASE_PATH}/usuario`,
   roles: `${API_BASE_PATH}/roles`,
@@ -133,6 +135,18 @@ export const usersService = {
   ): Promise<Usuario[]> {
     const payload = await requestUsersApi<unknown>(
       usersApiPaths.usuariosBySucursal(sucursalId),
+      options
+    )
+    return getListData<Usuario>(payload, ["usuarios", "data"])
+  },
+
+  async listUsuariosByEmpresaSucursal(
+    empresaId: string,
+    sucursalId: string,
+    options?: UsersRequestOptions
+  ): Promise<Usuario[]> {
+    const payload = await requestUsersApi<unknown>(
+      usersApiPaths.usuariosByEmpresaSucursal(empresaId, sucursalId),
       options
     )
     return getListData<Usuario>(payload, ["usuarios", "data"])

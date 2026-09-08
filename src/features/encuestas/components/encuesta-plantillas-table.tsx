@@ -104,19 +104,19 @@ export function EncuestaPlantillasTable() {
   const [preguntasPlantilla, setPreguntasPlantilla] = useState<EncuestaPlantilla | null>(null)
 
   const loadPlantillas = useCallback(async () => {
-    if (!empresaId) {
-      setLoadError("No se pudo determinar la empresa del usuario actual.")
+    if (!empresaId || !sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
 
     try {
-      const data = await encuestasService.listPlantillasByEmpresa(empresaId)
+      const data = await encuestasService.listPlantillasByEmpresaSucursal(empresaId, sucursalId)
       setPlantillas(data)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar las plantillas de encuesta."))
     }
-  }, [empresaId])
+  }, [empresaId, sucursalId])
 
   useEffect(() => {
     let isMounted = true

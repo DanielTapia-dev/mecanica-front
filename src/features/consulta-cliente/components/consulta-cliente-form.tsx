@@ -82,6 +82,9 @@ export function ConsultaClienteForm() {
           className="absolute -top-10 -right-10 size-28 rotate-45 bg-red-600/90 sm:size-36 md:size-40"
           aria-hidden="true"
         />
+        <div className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-md bg-red-600 px-3 py-1.5 text-lg font-extrabold tracking-tight text-white uppercase shadow-lg sm:left-4 sm:text-xl md:text-2xl">
+          SERGI TRACK IN
+        </div>
         <div className="relative">
           {logoBase64 ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -96,13 +99,13 @@ export function ConsultaClienteForm() {
                 <Wrench className="size-5 sm:size-6" />
               </div>
               <span className="text-lg font-extrabold tracking-tight uppercase sm:text-xl md:text-2xl">
-                {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
+                {registroInfo?.empresa_nombre ?? "TALLERES SRG S.A"}
               </span>
             </div>
           )}
           {logoBase64 ? (
             <p className="mt-2 text-lg font-extrabold tracking-tight uppercase sm:mt-3 sm:text-xl md:text-2xl">
-              {registroInfo?.empresa_nombre ?? "Servicio de Reparaciones Generales S.A."}
+              {registroInfo?.empresa_nombre ?? "TALLERES SRG S.A"}
             </p>
           ) : null}
           {registroInfo?.sucursal_nombre ? (
