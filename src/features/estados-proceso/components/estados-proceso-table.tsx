@@ -103,19 +103,22 @@ export function EstadosProcesoTable() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const loadEstados = useCallback(async () => {
-    if (!empresaId) {
-      setLoadError("No se pudo determinar la empresa del usuario actual.")
+    if (!empresaId || !sucursalId) {
+      setLoadError("No se pudo determinar la sucursal del usuario actual.")
       return
     }
 
     try {
-      const data = await estadosProcesoService.listEstadosProcesoByEmpresa(empresaId)
+      const data = await estadosProcesoService.listEstadosProcesoByEmpresaSucursal(
+        empresaId,
+        sucursalId
+      )
       setEstados(data)
       setLoadError(null)
     } catch (error) {
       setLoadError(getErrorMessage(error, "No fue posible cargar los estados de proceso."))
     }
-  }, [empresaId])
+  }, [empresaId, sucursalId])
 
   useEffect(() => {
     let isMounted = true

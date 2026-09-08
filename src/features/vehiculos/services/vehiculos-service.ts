@@ -54,6 +54,12 @@ export function fetchVehiculosBySucursal(sucursalId: string) {
   )
 }
 
+export function fetchVehiculosByEmpresaSucursal(empresaId: string, sucursalId: string) {
+  return request<VehiculosListResponse>(
+    `/api/mecanica/empresa/${empresaId}/sucursal/${sucursalId}/vehiculos`
+  )
+}
+
 export function fetchVehiculo(id: string) {
   return request<Vehiculo>(`/api/vehiculos/${id}`)
 }

@@ -149,7 +149,7 @@ export function EncuestaRespuestasTable({ soloPropias = false }: EncuestaRespues
     if (!empresaId || !sucursalId) return
 
     try {
-      const data = await encuestasService.listRespuestasBySucursal(sucursalId)
+      const data = await encuestasService.listRespuestasByEmpresaSucursal(empresaId, sucursalId)
       let finalRespuestas = data
 
       if (soloPropias && usuarioId) {

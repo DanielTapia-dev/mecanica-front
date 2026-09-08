@@ -47,6 +47,8 @@ export const workOrderApiPaths = {
     `${API_BASE_PATH}/empresa/${empresaId}/ordenes-trabajo`,
   workOrdersBySucursal: (sucursalId: EntityId) =>
     `${API_BASE_PATH}/sucursal/${sucursalId}/ordenes-trabajo`,
+  workOrdersByEmpresaSucursal: (empresaId: EntityId, sucursalId: EntityId) =>
+    `${API_BASE_PATH}/empresa/${empresaId}/sucursal/${sucursalId}/ordenes-trabajo`,
   workOrdersByClienteCedula: (clienteCedula: string) =>
     `${API_BASE_PATH}/cliente-cedula/${encodeURIComponent(clienteCedula)}/ordenes-trabajo`,
   workOrdersByVehicle: (vehicleId: EntityId) =>
@@ -772,7 +774,7 @@ function getWorkOrdersListRequest(filters?: WorkOrderListFilters) {
 
   if (empresa_id && sucursal_id) {
     return {
-      path: workOrderApiPaths.workOrdersBySucursal(sucursal_id),
+      path: workOrderApiPaths.workOrdersByEmpresaSucursal(empresa_id, sucursal_id),
       query,
     }
   }
