@@ -82,10 +82,12 @@ export function ConsultaClienteForm() {
           className="absolute -top-10 -right-10 size-28 rotate-45 bg-red-600/90 sm:size-36 md:size-40"
           aria-hidden="true"
         />
-        <div className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-md bg-red-600 px-3 py-1.5 text-lg font-extrabold tracking-tight text-white uppercase shadow-lg sm:left-4 sm:text-xl md:text-2xl">
-          SERGI TRACK IN
-        </div>
         <div className="relative">
+          <div className="mb-2 flex justify-center sm:mb-3">
+            <span className="inline-block rounded-md bg-red-600 px-3 py-1.5 text-lg font-extrabold tracking-tight text-white uppercase shadow-lg sm:text-xl md:text-2xl">
+              SERGI TRACK IN
+            </span>
+          </div>
           {logoBase64 ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

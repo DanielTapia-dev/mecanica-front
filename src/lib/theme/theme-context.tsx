@@ -9,15 +9,21 @@ interface ThemeContextType {
   toggleTheme: () => void
 }
 
-const THEME_STORAGE_KEY = "app_theme"
+const DEFAULT_THEME_STORAGE_KEY = "app_theme"
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
-function readStoredTheme(): Theme {
+function readStoredTheme(storageKey: string, defaultTheme: Theme): Theme {
   if (typeof window === "undefined") {
-    return "dark"
+    return defaultTheme
   }
 
-  return localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark"
+  const storedValue = localStorage.getItem(storageKey)
+
+  if (storedValue === "light" || storedValue === "dark") {
+    return storedValue
+  }
+
+  return defaultTheme
 }
 
 function applyTheme(theme: Theme) {
@@ -29,8 +35,18 @@ function applyTheme(theme: Theme) {
   root.classList.toggle("dark", theme === "dark")
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark")
+interface ThemeProviderProps {
+  children: ReactNode
+  defaultTheme?: Theme
+  storageKey?: string
+}
+
+export function ThemeProvider({
+  children,
+  defaultTheme = "dark",
+  storageKey = DEFAULT_THEME_STORAGE_KEY,
+}: ThemeProviderProps) {
+  const [theme, setTheme] = useState<Theme>(defaultTheme)
 
   useEffect(() => {
     let isMounted = true
@@ -40,7 +56,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const storedTheme = readStoredTheme()
+      const storedTheme = readStoredTheme(storageKey, defaultTheme)
       setTheme(storedTheme)
       applyTheme(storedTheme)
     })
@@ -48,7 +64,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [defaultTheme, storageKey])
 
   const value = useMemo<ThemeContextType>(
     () => ({
@@ -56,13 +72,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       toggleTheme: () => {
         setTheme((currentTheme) => {
           const nextTheme = currentTheme === "dark" ? "light" : "dark"
-          localStorage.setItem(THEME_STORAGE_KEY, nextTheme)
+          localStorage.setItem(storageKey, nextTheme)
           applyTheme(nextTheme)
           return nextTheme
         })
       },
     }),
-    [theme]
+    [theme, storageKey]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
